@@ -1,24 +1,24 @@
 [gd_scene format=3 uid="uid://dyin0y7waqing"]
 
-[ext_resource type="Shader" uid="uid://ddea27ig1yagl" path="res://Shader/ps2_material.gdshader" id="1_kbw4x"]
+[ext_resource type="Texture2D" uid="uid://dg27nbnq2d5ya" path="res://Materials/drzewo.png" id="1_u7jam"]
 [ext_resource type="PackedScene" uid="uid://csrmuvwj0fefo" path="res://Scenes/character.tscn" id="2_xkwxp"]
 [ext_resource type="Shader" uid="uid://cntbcorcdrqgf" path="res://Shader/ps2_post.gdshader" id="3_ipysq"]
 [ext_resource type="PackedScene" uid="uid://5qvdsp11oe4g" path="res://Scenes/Flashlight.tscn" id="4_redxk"]
 [ext_resource type="PackedScene" uid="uid://v88iw06653es" path="res://Scenes/jumpscare.tscn" id="5_xkwxp"]
 [ext_resource type="Texture2D" uid="uid://con0eb3m0hohh" path="res://JUMP/kiszak2.png" id="6_u7jam"]
+[ext_resource type="PackedScene" uid="uid://butl8frkc3sqx" path="res://Scenes/słup.tscn" id="7_avyfn"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
+albedo_texture = ExtResource("1_u7jam")
 
 [sub_resource type="BoxMesh" id="BoxMesh_riqys"]
+material = SubResource("StandardMaterial3D_57qmd")
 size = Vector3(24.536346, 0.21594238, 18.977074)
 
 [sub_resource type="Skin" id="Skin_bhunq"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_wfnr8"]
-render_priority = 0
-shader = ExtResource("1_kbw4x")
-shader_parameter/tint = Color(1, 1, 1, 1)
-shader_parameter/vertex_wobble = 0.15
-shader_parameter/snap_resolution = Vector2(320, 240)
-shader_parameter/color_levels = 96.0
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_avyfn"]
+albedo_texture = ExtResource("1_u7jam")
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_riqys"]
 
@@ -30,7 +30,6 @@ size = Vector3(24.33374, 1, 18.589355)
 [sub_resource type="Environment" id="Environment_sn0t7"]
 background_mode = 2
 sky = SubResource("Sky_6f8o3")
-ambient_light_source = 3
 glow_enabled = true
 glow_intensity = 0.01
 glow_bloom = 0.1
@@ -40,8 +39,9 @@ fog_aerial_perspective = 0.021
 fog_sky_affect = 0.0
 fog_height_density = 1.719
 volumetric_fog_enabled = true
-volumetric_fog_density = 0.1
-volumetric_fog_albedo = Color(1, 0.16078432, 0.0627451, 1)
+volumetric_fog_density = 0.3802
+volumetric_fog_albedo = Color(0.5370987, 0.06610486, 0.016736297, 1)
+volumetric_fog_emission = Color(0.5254902, 0.13725491, 0.023529412, 1)
 volumetric_fog_emission_energy = 0.0
 adjustment_enabled = true
 adjustment_contrast = 1.155
@@ -65,7 +65,7 @@ shader_parameter/aberration = 0.0015
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.07016, 0.039613545, -1.1348133)
 mesh = SubResource("BoxMesh_riqys")
 skin = SubResource("Skin_bhunq")
-surface_material_override/0 = SubResource("ShaderMaterial_wfnr8")
+surface_material_override/0 = SubResource("StandardMaterial3D_avyfn")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=308934204]
 physics_material_override = SubResource("PhysicsMaterial_riqys")
@@ -112,5 +112,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7940283, 0.5621176, -4.741
 
 [node name="Area3D" parent="Node3D4" index="0" unique_id=1564986556]
 obraz = ExtResource("6_u7jam")
+
+[node name="Node3D5" parent="." unique_id=2034255742 instance=ExtResource("7_avyfn")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -4, 1, 0)
 
 [editable path="Node3D4"]
