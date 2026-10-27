@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://v88iw06653es"]
+
+[ext_resource type="Script" uid="uid://bulj6qa0r4qli" path="res://jumpscare.gd" id="1_dkw4f"]
+[ext_resource type="Texture2D" uid="uid://c7u3m7tjxjibq" path="res://JUMP/kiszak.png" id="2_4qc3y"]
+[ext_resource type="Script" uid="uid://df4bsap6s2bpy" path="res://jumpscare_trigger.gd" id="2_6rciv"]
+[ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="3_6rciv"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_bhunq"]
+radius = 0.73380405
+
+[node name="Node3D" type="Node3D" unique_id=1834358232]
+
+[node name="Area3D" type="Area3D" parent="." unique_id=1564986556]
+script = ExtResource("1_dkw4f")
+tylko_raz = false
+opoznienie = 1.0
+dzwiek = ExtResource("3_6rciv")
+obraz = ExtResource("2_4qc3y")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D" unique_id=794340694]
+shape = SubResource("SphereShape3D_bhunq")
+script = ExtResource("2_6rciv")
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="Area3D/CollisionShape3D" unique_id=1235053227]
+stream = ExtResource("3_6rciv")
