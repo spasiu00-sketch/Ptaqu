@@ -160,6 +160,7 @@ func _update_prompt() -> void:
 	var show_prompt := false
 	if interact_ray and interact_ray.is_colliding():
 		var target = interact_ray.get_collider()
+		
 		if is_instance_valid(target) and target.has_method("interact"):
 			var text = target.get("prompt_text")
 			if text == null:
