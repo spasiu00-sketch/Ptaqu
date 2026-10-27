@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://c6kl2q600y2qt"]
+
+[ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="1_2vysr"]
+
+[node name="Untitled_test animacji" unique_id=1774513011 instance=ExtResource("1_2vysr")]
+
+[node name="Cylinder_001" parent="." index="2" unique_id=972016094]
+transform = Transform3D(-1.6292068e-07, 1, 0, -1, -1.6292068e-07, 0, 0, 0, 1, -1.1287357, -6.536657e-08, 2.8953382e-09)

@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://5qvdsp11oe4g"]
+
+[ext_resource type="Script" uid="uid://dg4lnff0v2kss" path="res://static_body_3d.gd" id="1_0qj7l"]
+[ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="2_0qj7l"]
+[ext_resource type="Animation" uid="uid://cfwhofcmxm58y" path="res://Animations/BateriaAction.res" id="3_cvifi"]
+[ext_resource type="Animation" uid="uid://nydcannc2hwk" path="res://Animations/CylinderAction.res" id="4_epbju"]
+[ext_resource type="Animation" uid="uid://b6petsmo0ly1w" path="res://Animations/Cylinder_001Action.res" id="5_4jgow"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bhunq"]
+size = Vector3(0.5528259, 0.16333008, 0.19915771)
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_scy7e"]
+_data = {
+&"BateriaAction": ExtResource("3_cvifi"),
+&"CylinderAction": ExtResource("4_epbju"),
+&"Cylinder_001Action": ExtResource("5_4jgow")
+}
+
+[node name="Node3D" type="Node3D" unique_id=1327510861]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=42601452]
+script = ExtResource("1_0qj7l")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1342691050]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23731995, 0.01679182, -0.009185791)
+shape = SubResource("BoxShape3D_bhunq")
+
+[node name="Flashlight" parent="StaticBody3D" unique_id=1774513011 instance=ExtResource("2_0qj7l")]
+transform = Transform3D(0.08, 0, 0, 0, 0.08, 0, 0, 0, 0.08, 0.06549072, 0.0060141087, -0.009185791)
+
+[node name="Cylinder_001" parent="StaticBody3D/Flashlight" index="2" unique_id=958985011]
+transform = Transform3D(-1.6292068e-07, 1, 0, -1, -1.6292068e-07, 0, 0, 0, 1, -1.1287357, -6.536657e-08, 2.8953382e-09)
+
+[node name="AnimationPlayer" parent="StaticBody3D/Flashlight" index="3" unique_id=1322554178]
+libraries/ = SubResource("AnimationLibrary_scy7e")
+
+[editable path="StaticBody3D/Flashlight"]
