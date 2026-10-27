@@ -17,6 +17,8 @@ const MOUSE_SENS := 0.002
 @export var sway_max: float = 0.12        # maksymalny wychył (radiany)
 @export var sway_smooth: float = 10.0     # im większe, tym szybciej latarka "dogania" kamerę
 @export var start_with_flashlight: bool = false   # false = gracz dostaje latarkę dopiero po podniesieniu
+@export var held_root_name: String = "Cofanie"                   # węzeł ukrywany do czasu podniesienia latarki
+@export var held_model_name: String = "Untitled_test animacji"   # model, który kołysze się przy chodzeniu
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var step_progress: float = 0.0
@@ -25,7 +27,8 @@ var camera: Camera3D
 var footstep_player = null          # AudioStreamPlayer lub AudioStreamPlayer3D
 var interact_ray: RayCast3D = null
 var flashlight: Flashlight = null
-var held_flashlight: Node3D = null
+var held_flashlight: Node3D = null  # węzeł kołysany przy chodzeniu (model latarki)
+var held_root: Node3D = null        # węzeł ukrywany/pokazywany (Cofanie)
 var prompt_label: Label
 
 var held_base_pos := Vector3.ZERO
@@ -50,10 +53,17 @@ func _ready() -> void:
 			flashlight = light
 			break
 
-	# węzeł do ukrywania/kołysania: HeldFlashlight, a jeśli go nie ma, sam węzeł z latarką
-	held_flashlight = find_child("HeldFlashlight", true, false) as Node3D
+	# węzeł do kołysania: model latarki, a jeśli go nie ma, HeldFlashlight, a w ostateczności samo światło
+	held_flashlight = find_child(held_model_name, true, false) as Node3D
+	if held_flashlight == null:
+		held_flashlight = find_child("HeldFlashlight", true, false) as Node3D
 	if held_flashlight == null:
 		held_flashlight = flashlight
+
+	# węzeł do ukrywania: Cofanie (model + światło razem), a jeśli go nie ma, to samo co wyżej
+	held_root = find_child(held_root_name, true, false) as Node3D
+	if held_root == null:
+		held_root = held_flashlight
 
 	if interact_ray:
 		interact_ray.add_exception(self)   # promień ignoruje kapsułę gracza
@@ -67,13 +77,13 @@ func _ready() -> void:
 		if not start_with_flashlight:
 			flashlight._set_light(false)
 
-	if held_flashlight:
+	if held_root and held_flashlight:
 		held_base_pos = held_flashlight.position
 		held_base_rot = held_flashlight.rotation
-		_disable_collisions(held_flashlight)   # model w ręku nie może mieć kolizji
-		held_flashlight.visible = start_with_flashlight and flashlight != null
+		_disable_collisions(held_root)   # model w ręku nie może mieć kolizji
+		held_root.visible = start_with_flashlight and flashlight != null
 	else:
-		push_warning("Brak latarki w ręku (HeldFlashlight / Flashlight)")
+		push_warning("Brak latarki w ręku (Cofanie / model / HeldFlashlight)")
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -199,8 +209,8 @@ func _try_interact() -> void:
 func give_flashlight() -> void:
 	if flashlight:
 		flashlight.pick_up()
-	if held_flashlight:
-		held_flashlight.visible = true
+	if held_root:
+		held_root.visible = true
 
 
 # ---------- Latarka w ręku: kołysanie i opóźnienie ----------
@@ -210,7 +220,7 @@ func _process(delta: float) -> void:
 
 
 func _update_held_flashlight(delta: float) -> void:
-	if held_flashlight == null or not held_flashlight.visible:
+	if held_root == null or held_flashlight == null or not held_root.visible:
 		mouse_input = Vector2.ZERO
 		return
 

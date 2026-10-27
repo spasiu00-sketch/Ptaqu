@@ -9,6 +9,9 @@ extends SpotLight3D
 @export var flicker_below: float = 20.0            # poniżej tego % zaczyna migotać
 @export var hold_time: float = 3.0                 # ile sekund trzymać F, żeby przeładować
 
+# Węzeł zawierający model i AnimationPlayery. Puste = znajdzie sam (idzie w górę drzewa)
+@export var model_root: Node3D
+
 # Animacje przeładowania, odtwarzane NARAZ (spacje na początku nazw są ignorowane)
 @export var reload_animations: Array[StringName] = [&"BateriaAction", &"CylinderAction", &"Cylinder_001Action"]
 @export var debug_animations: bool = false
@@ -47,7 +50,7 @@ var _sfx_alert: AudioStreamPlayer
 func _ready() -> void:
 	battery = max_battery * clampf(start_battery_percent, 0.0, 100.0) / 100.0
 	shadow_enabled = true
-	visible = true   # NIE ruszamy visible: to rodzic modelu latarki
+	visible = true   # NIE ruszamy visible: ukrywaniem zajmuje się player.gd
 	unlocked = starts_unlocked
 
 	# osobne odtwarzacze, żeby dźwięki nie ucinały się nawzajem
@@ -88,12 +91,37 @@ func _ensure_key_action(action: String, key: Key) -> void:
 # ---------- Model: pozycje spoczynkowe i cienie ----------
 
 func _setup_model() -> void:
-	_save_rest_pose(self)
+	if model_root == null:
+		model_root = _find_model_root()
+	if debug_animations:
+		print("Flashlight: model_root = ", model_root.get_path())
+	_save_rest_pose(model_root)
 	_build_players()
+
+
+# Idzie w górę drzewa od tego węzła, aż trafi na węzeł z oryginalnym AnimationPlayerem
+func _find_model_root() -> Node3D:
+	var node: Node = self
+	while node != null:
+		if node is Node3D and _has_original_player(node):
+			return node as Node3D
+		if node is Camera3D or node is CharacterBody3D:
+			break
+		node = node.get_parent()
+	push_warning("Flashlight: nie znaleziono AnimationPlayera ani w tym węźle, ani wyżej. Wskaż 'Model Root' w Inspektorze.")
+	return self
+
+
+func _has_original_player(node: Node) -> bool:
+	var found: Array = []
+	_collect_players(node, found)
+	return not found.is_empty()
 
 
 func _save_rest_pose(node: Node) -> void:
 	for child in node.get_children():
+		if child == self:
+			continue
 		if child is Node3D:
 			_rest_pose[child] = {"t": child.transform, "v": child.visible}
 		if child is GeometryInstance3D:
@@ -121,7 +149,7 @@ func _collect_players(node: Node, out: Array) -> void:
 
 func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
 	var players: Array = []
-	_collect_players(self, players)
+	_collect_players(model_root, players)
 	var wanted := String(anim_name).strip_edges().to_lower()
 
 	# 1) dokładna nazwa (ignoruje spacje na początku/końcu)
@@ -149,7 +177,7 @@ func _build_players() -> void:
 
 	if debug_animations:
 		var all: Array = []
-		_collect_players(self, all)
+		_collect_players(model_root, all)
 		for p: AnimationPlayer in all:
 			print("Player: ", p.get_path(), " animacje: ", p.get_animation_list())
 
@@ -158,7 +186,7 @@ func _build_players() -> void:
 		var found := _find_animation(n, used)
 		if found.is_empty():
 			var all2: Array = []
-			_collect_players(self, all2)
+			_collect_players(model_root, all2)
 			var names: Array = []
 			for p2: AnimationPlayer in all2:
 				names.append_array(p2.get_animation_list())
