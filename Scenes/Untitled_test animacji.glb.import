@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://f4c4og6rol7l"
-path="res://.godot/imported/Untitled_test animacji.glb-839ae1dcea8636173fb9b005631d1fcd.scn"
+path="res://.godot/imported/Untitled_test animacji.glb-a4da99f3347b3d63fae80fbc0821cd03.scn"
 
 [deps]
 
-source_file="res://Untitled_test animacji.glb"
-dest_files=["res://.godot/imported/Untitled_test animacji.glb-839ae1dcea8636173fb9b005631d1fcd.scn"]
+source_file="res://Scenes/Untitled_test animacji.glb"
+dest_files=["res://.godot/imported/Untitled_test animacji.glb-a4da99f3347b3d63fae80fbc0821cd03.scn"]
 
 [params]
 

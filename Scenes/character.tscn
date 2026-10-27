@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://csrmuvwj0fefo"]
 
-[ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://character_body_3d.gd" id="1_glpr6"]
-[ext_resource type="Script" uid="uid://cg5w4653dqpmd" path="res://character.gd" id="1_pjt0s"]
-[ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://camera_3d.gd" id="3_0qfo5"]
+[ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
+[ext_resource type="Script" uid="uid://cg5w4653dqpmd" path="res://Skrypts/character.gd" id="1_pjt0s"]
+[ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://Skrypts/camera_3d.gd" id="3_0qfo5"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://spot_light_3d.gd" id="3_wa5vi"]
 [ext_resource type="Script" uid="uid://nok1efw16er6" path="res://viewmodel_clip_guard.gd" id="4_c1b4b"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="4_px5sl"]
