@@ -3,33 +3,52 @@
 [ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
 [ext_resource type="Script" uid="uid://cg5w4653dqpmd" path="res://Skrypts/character.gd" id="1_pjt0s"]
 [ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://Skrypts/camera_3d.gd" id="3_0qfo5"]
+[ext_resource type="Script" uid="uid://rwrdj3yyefgb" path="res://Skrypts/cien_gracza.gd" id="3_l1rcp"]
+[ext_resource type="PackedScene" uid="uid://crc8uwg03ko16" path="res://Models/test_Chodzenia.glb" id="3_le1tg"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/spot_light_3d.gd" id="3_wa5vi"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="4_px5sl"]
 [ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
+[ext_resource type="Animation" uid="uid://b7r3rrbnqe026" path="res://Animations/walk_main_hero.res" id="5_2daya"]
 [ext_resource type="AudioStream" uid="uid://dfcjcf8s8lsj2" path="res://Sounds/88291__s_dij__whisk_reload_05.wav" id="5_jb3kq"]
 [ext_resource type="AudioStream" uid="uid://byr1bigr3plrn" path="res://Sounds/421475__jaszunio15__click_143.wav" id="6_jb3kq"]
 [ext_resource type="AudioStream" uid="uid://ccacggeasx808" path="res://Sounds/232447__mmaruska__lights-flicker-on.wav" id="7_7tnxx"]
 [ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="8_bwfjh"]
-[ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Models/trzymany_obiekt.gd" id="11_l1rcp"]
+[ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Skrypts/trzymany_obiekt.gd" id="11_l1rcp"]
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_bhunq"]
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_le1tg"]
+_data = {
+&"walk_main": ExtResource("5_2daya")
+}
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
+radius = 0.26220703
+height = 1.2595339
 
 [node name="Node3D" type="Node3D" unique_id=94253958]
 script = ExtResource("1_pjt0s")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
+walk_animation = &"walk_main_hero"
+idle_animation = &"idle_main_hero"
+debug_body_animation = true
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="CharacterBody3D" unique_id=1624516800]
-mesh = SubResource("CapsuleMesh_bhunq")
+[node name="cien_gracza" type="Node3D" parent="CharacterBody3D" unique_id=1230742496]
+script = ExtResource("3_l1rcp")
+
+[node name="test_Chodzenia" parent="CharacterBody3D/cien_gracza" unique_id=418018793 instance=ExtResource("3_le1tg")]
+transform = Transform3D(-0.2, 0, -3.019916e-08, 0, 0.2, 0, 3.019916e-08, 0, -0.2, 0.46009266, 4.2766333e-05, 0.3886785)
+
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="CharacterBody3D/cien_gracza" unique_id=253104647]
+root_node = NodePath("../../..")
+libraries/ = SubResource("AnimationLibrary_le1tg")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
+transform = Transform3D(0.9979775, 0.005302255, -0.06334571, -0.006189114, 0.99988544, -0.013812293, 0.06326523, 0.0141764125, 0.997896, -0.0428108, 0.52046645, -0.04041613)
 shape = SubResource("CapsuleShape3D_bhunq")
 
 [node name="Camera3D" type="Camera3D" parent="CharacterBody3D" unique_id=794933290]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -0.03952968, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03952968, 0.9345341, -0.052930355)
 doppler_tracking = 2
 near = 0.052
 script = ExtResource("3_0qfo5")
@@ -62,5 +81,5 @@ collide_with_areas = true
 debug_shape_custom_color = Color(0.73333335, 0, 0, 1)
 
 [node name="FootstepPlayer" type="AudioStreamPlayer3D" parent="CharacterBody3D" unique_id=2063876596]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.84946775, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8494679, 0)
 stream = ExtResource("4_wfnr8")

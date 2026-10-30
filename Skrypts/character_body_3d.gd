@@ -38,6 +38,12 @@ const INPUT_KEYS := {
 @export var held_root_name: String = "Cofanie"                   # węzeł ukrywany do czasu podniesienia latarki
 @export var held_model_name: String = "Untitled_test animacji"   # model, który kołysze się przy chodzeniu
 
+@export_group("Model postaci (cień)")
+@export var body_node_name: String = "cien_gracza"         # węzeł z modelem postaci (instancja character.tscn)
+@export var walk_animation: StringName = &"walk_main"      # animacja chodzenia
+@export var idle_animation: StringName = &""               # animacja stania (puste = animacja się zatrzymuje)
+@export var debug_body_animation: bool = false             # true = wypisuje w Output dostępne animacje
+
 # ---------- Stan ----------
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -49,6 +55,7 @@ var interact_ray: RayCast3D = null
 var flashlight: Flashlight = null
 var held_flashlight: Node3D = null  # węzeł kołysany przy chodzeniu (model latarki)
 var held_root: Node3D = null        # węzeł ukrywany/pokazywany (Cofanie)
+var body_anim: AnimationPlayer = null   # animacje modelu postaci (widocznego tylko jako cień)
 var prompt_label: Label
 
 var held_base_pos := Vector3.ZERO
@@ -69,6 +76,7 @@ func _ready() -> void:
 	_find_nodes()
 	_setup_flashlight()
 	_setup_held_item()
+	_setup_body_animation()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -121,6 +129,92 @@ func _setup_held_item() -> void:
 	held_base_rot = held_flashlight.rotation
 	_disable_collisions(held_root)   # model w ręku nie może mieć kolizji
 	held_root.visible = start_with_flashlight and flashlight != null
+
+
+# Szuka AnimationPlayera TYLKO w modelu postaci, nie rusza animacji latarki
+func _setup_body_animation() -> void:
+	var body := find_child(body_node_name, true, false)
+	if body == null:
+		push_warning("Brak węzła modelu postaci '%s'" % body_node_name)
+		return
+
+	var players := body.find_children("*", "AnimationPlayer", true, false)
+	if players.is_empty():
+		push_warning("Model '%s' nie ma AnimationPlayera" % body_node_name)
+		return
+
+	# model może mieć kilka AnimationPlayerów (własny w .glb i dodany ręcznie):
+	# bierzemy ten, który ma animację chodzenia
+	var player: AnimationPlayer = null
+	for candidate: AnimationPlayer in players:
+		if debug_body_animation:
+			print("AnimationPlayer: ", candidate.get_path(), " | animacje: ", candidate.get_animation_list())
+		if player == null and candidate.has_animation(walk_animation):
+			player = candidate
+
+	if player == null:
+		push_warning("Żaden AnimationPlayer modelu nie ma animacji '%s'" % walk_animation)
+		return
+
+	for anim_name in [walk_animation, idle_animation]:
+		if player.has_animation(anim_name):
+			var anim := player.get_animation(anim_name)
+			anim.loop_mode = Animation.LOOP_LINEAR   # animacje z .glb / .fbx domyślnie się nie zapętlają
+			_fix_animation_paths(player, anim)
+
+	player.stop()
+	player.clear_caches()   # odrzuca stare, błędne ścieżki zapamiętane np. przez Autoplay
+	body_anim = player
+
+
+# Dopasowuje tracki animacji do kości faktycznego szkieletu w modelu.
+# Naprawia błąd "couldn't resolve track 'Armature_002/Skeleton3D:mixamorig_...'",
+# gdy szkielet nazywa się inaczej lub leży pod inną ścieżką niż w animacji.
+func _fix_animation_paths(player: AnimationPlayer, anim: Animation) -> void:
+	var root := player.get_node_or_null(player.root_node)
+	if root == null:
+		push_warning("Root Node AnimationPlayera modelu nie wskazuje na żaden węzeł")
+		return
+
+	var skeletons := root.find_children("*", "Skeleton3D", true, false)
+	if skeletons.is_empty():
+		push_warning("Model nie ma Skeleton3D pod Root Node AnimationPlayera")
+		return
+	var skeleton := skeletons[0] as Skeleton3D
+	var skeleton_path := String(root.get_path_to(skeleton))
+
+	# znormalizowana nazwa -> prawdziwa nazwa kości ("mixamorig_Hips" == "mixamorig:Hips" == "Hips")
+	var bones := {}
+	for i in skeleton.get_bone_count():
+		bones[_normalize_bone_name(skeleton.get_bone_name(i))] = skeleton.get_bone_name(i)
+
+	if debug_body_animation:
+		print("Szkielet modelu: ", skeleton_path, " | liczba kości: ", skeleton.get_bone_count())
+
+	var removed := 0
+	for i in range(anim.get_track_count() - 1, -1, -1):
+		var track_type := anim.track_get_type(i)
+		if track_type != Animation.TYPE_POSITION_3D \
+				and track_type != Animation.TYPE_ROTATION_3D \
+				and track_type != Animation.TYPE_SCALE_3D:
+			continue
+		var path := anim.track_get_path(i)
+		if path.get_subname_count() == 0:
+			continue
+
+		var key := _normalize_bone_name(String(path.get_subname(0)))
+		if not bones.has(key):
+			anim.remove_track(i)   # kość nie istnieje w modelu, track i tak by nie działał
+			removed += 1
+			continue
+		anim.track_set_path(i, NodePath("%s:%s" % [skeleton_path, bones[key]]))
+
+	if removed > 0:
+		push_warning("Animacja '%s': usunięto %d tracków bez pasującej kości" % [anim.resource_name, removed])
+
+
+func _normalize_bone_name(bone: String) -> String:
+	return bone.to_lower().replace("mixamorig", "").replace(":", "").replace("_", "").replace(" ", "")
 
 
 # ---------- Ustawienia wejścia ----------
@@ -249,6 +343,27 @@ func _play_step() -> void:
 		print("krok")
 
 
+# ---------- Animacja modelu postaci ----------
+
+func _update_body_animation() -> void:
+	if body_anim == null:
+		return
+	if _is_walking():
+		body_anim.speed_scale = _get_horizontal_speed() / SPEED   # sprint = szybsza animacja
+		_play_body_animation(walk_animation)
+	else:
+		body_anim.speed_scale = 1.0
+		if body_anim.has_animation(idle_animation):
+			_play_body_animation(idle_animation)
+		else:
+			body_anim.pause()
+
+
+func _play_body_animation(anim_name: StringName) -> void:
+	if not body_anim.is_playing() or body_anim.current_animation != String(anim_name):
+		body_anim.play(anim_name)
+
+
 # ---------- Latarka w ręku: kołysanie i opóźnienie ----------
 
 func _process(delta: float) -> void:
@@ -297,6 +412,7 @@ func _physics_process(delta: float) -> void:
 	_apply_movement()
 	move_and_slide()
 	_handle_footsteps(delta)
+	_update_body_animation()
 	_update_prompt()
 
 

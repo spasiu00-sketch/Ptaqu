@@ -62,7 +62,7 @@ shader_parameter/aberration = 0.0015
 [node name="START_GAME" type="Node3D" unique_id=1430041279]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=821448270]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.07016, 0.039613545, -1.1348133)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.099337, 0.025154412, -1.0964664)
 mesh = SubResource("BoxMesh_riqys")
 skin = SubResource("Skin_bhunq")
 surface_material_override/0 = SubResource("StandardMaterial3D_avyfn")
@@ -75,7 +75,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.8968506, -0.30708122, -1.2
 shape = SubResource("BoxShape3D_sn0t7")
 
 [node name="Node3D2" parent="." unique_id=94253958 instance=ExtResource("2_xkwxp")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0036299229, 0.8935492, -1.8430686)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0036299229, 0.39862728, -1.8430686)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1680082795]
 transform = Transform3D(-0.70029926, 0.7138494, 0, -0.7138494, -0.70029926, 0, 0, 0, 1, 0, 18.661232, 0)

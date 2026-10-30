@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cp5nu7tpj2pt2"
-path.s3tc="res://.godot/imported/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-cee2ecc0b7548b51453170293a053318.s3tc.ctex"
+uid="uid://ddsvxdtgxa2in"
+path.s3tc="res://.godot/imported/test_Chodzenia_psx_basemesh_male.png-053174b38d39293106c3df429572cb83.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "7eca5c3356282621ac6512de5d242098"
+"md5": "13f2048f834b2fbf27cb8016fc1c0254"
 }
 
 [deps]
 
-source_file="res://Shader/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png"
-dest_files=["res://.godot/imported/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-cee2ecc0b7548b51453170293a053318.s3tc.ctex"]
+source_file="res://Models/test_Chodzenia_psx_basemesh_male.png"
+dest_files=["res://.godot/imported/test_Chodzenia_psx_basemesh_male.png-053174b38d39293106c3df429572cb83.s3tc.ctex"]
 
 [params]
 
