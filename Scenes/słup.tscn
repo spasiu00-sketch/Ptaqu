@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://butl8frkc3sqx"]
 
-[ext_resource type="Script" uid="uid://hh0b0h8m62j1" path="res://Scenes/interakcja_mówienie.gd" id="1_8qqxi"]
+[ext_resource type="Script" uid="uid://hh0b0h8m62j1" path="res://Skrypts/interakcja_mówienie.gd" id="1_8qqxi"]
 [ext_resource type="Texture2D" uid="uid://yk5g4ufafemw" path="res://Materials/Zrzut ekranu 2026-10-27 221525.png" id="1_tve66"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
