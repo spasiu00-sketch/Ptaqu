@@ -10,14 +10,20 @@
 [ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
 [ext_resource type="Animation" uid="uid://b7r3rrbnqe026" path="res://Animations/walk_main_hero.res" id="5_2daya"]
 [ext_resource type="AudioStream" uid="uid://dfcjcf8s8lsj2" path="res://Sounds/88291__s_dij__whisk_reload_05.wav" id="5_jb3kq"]
+[ext_resource type="Animation" uid="uid://b3pthbnj1kig" path="res://Animations/idle_main_hero.res" id="5_mvyft"]
+[ext_resource type="Animation" uid="uid://b63l4ncdh3f72" path="res://Animations/crouch_idle_main_hero.res" id="5_q5mnj"]
 [ext_resource type="AudioStream" uid="uid://byr1bigr3plrn" path="res://Sounds/421475__jaszunio15__click_143.wav" id="6_jb3kq"]
+[ext_resource type="Animation" uid="uid://c3a6xcxq7jg5r" path="res://Animations/crouch_walk_main_hero.res" id="6_w85my"]
 [ext_resource type="AudioStream" uid="uid://ccacggeasx808" path="res://Sounds/232447__mmaruska__lights-flicker-on.wav" id="7_7tnxx"]
 [ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="8_bwfjh"]
 [ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Skrypts/trzymany_obiekt.gd" id="11_l1rcp"]
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_le1tg"]
 _data = {
-&"walk_main": ExtResource("5_2daya")
+&"crouch_idle_main_hero": ExtResource("5_q5mnj"),
+&"crouch_walk_main_hero": ExtResource("6_w85my"),
+&"idle_main_hero": ExtResource("5_mvyft"),
+&"walk_main_hero": ExtResource("5_2daya")
 }
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
@@ -29,8 +35,6 @@ script = ExtResource("1_pjt0s")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
-walk_animation = &"walk_main_hero"
-idle_animation = &"idle_main_hero"
 debug_body_animation = true
 
 [node name="cien_gracza" type="Node3D" parent="CharacterBody3D" unique_id=1230742496]
@@ -39,8 +43,8 @@ script = ExtResource("3_l1rcp")
 [node name="test_Chodzenia" parent="CharacterBody3D/cien_gracza" unique_id=418018793 instance=ExtResource("3_le1tg")]
 transform = Transform3D(-0.2, 0, -3.019916e-08, 0, 0.2, 0, 3.019916e-08, 0, -0.2, 0.46009266, 4.2766333e-05, 0.3886785)
 
-[node name="AnimationPlayer2" type="AnimationPlayer" parent="CharacterBody3D/cien_gracza" unique_id=253104647]
-root_node = NodePath("../../..")
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="CharacterBody3D/cien_gracza/test_Chodzenia" unique_id=253104647]
+root_node = NodePath("../../../..")
 libraries/ = SubResource("AnimationLibrary_le1tg")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
