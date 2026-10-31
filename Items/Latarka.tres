@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("2_2cwij")
+nazwa = "Latarka"
 opis = "Latarka na ziemi
 "
 ikona = ExtResource("1_nvqpi")

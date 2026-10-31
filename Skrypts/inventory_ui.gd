@@ -1,6 +1,7 @@
 class_name InventoryUI
 extends CanvasLayer
 # Ekwipunek budowany w kodzie. Tworzy go player (character_body_3d.gd), otwierany klawiszem Tab.
+# Kafelki można przeciągać myszką: na pusty slot (przeniesienie), na inny (zamiana / scalenie stacków).
 
 const KOLUMNY := 5
 
@@ -80,6 +81,11 @@ func _zbuduj() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.expand_icon = true
 		b.pressed.connect(_wybierz.bind(i))
+		# drag & drop: przeciąganie z tego kafelka i upuszczanie na ten kafelek
+		b.set_drag_forwarding(
+				_przeciagnij.bind(i, b),
+				_mozna_upuscic.bind(i),
+				_upusc.bind(i))
 		_siatka.add_child(b)
 		_przyciski.append(b)
 
@@ -105,6 +111,45 @@ func _zbuduj() -> void:
 	_btn_wyrzuc.pressed.connect(_wyrzuc)
 	akcje.add_child(_btn_wyrzuc)
 
+
+# ---------- Drag & drop ----------
+
+# Wywoływane, gdy gracz zaczyna ciągnąć kafelek (bind: indeks, przycisk)
+func _przeciagnij(_pozycja: Vector2, indeks: int, przycisk: Button) -> Variant:
+	if _inv == null or _inv.sloty[indeks] == null:
+		return null   # pustego slotu nie da się złapać
+
+	# podgląd pod kursorem (w kontenerze, żeby kursor był w środku kafelka)
+	var podglad := Button.new()
+	podglad.text = przycisk.text
+	podglad.icon = przycisk.icon
+	podglad.expand_icon = true
+	podglad.clip_text = true
+	podglad.size = przycisk.size
+	podglad.position = -przycisk.size * 0.5
+	podglad.modulate = Color(1, 1, 1, 0.75)
+	podglad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var kontener := Control.new()
+	kontener.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	kontener.add_child(podglad)
+	przycisk.set_drag_preview(kontener)
+
+	return {"slot": indeks}
+
+
+func _mozna_upuscic(_pozycja: Vector2, dane: Variant, _indeks: int) -> bool:
+	return dane is Dictionary and dane.has("slot")
+
+
+func _upusc(_pozycja: Vector2, dane: Variant, indeks: int) -> void:
+	if not (dane is Dictionary and dane.has("slot")):
+		return
+	_wybrany = indeks   # zaznaczenie "idzie" za przeniesionym przedmiotem
+	_inv.przenies(int(dane["slot"]), indeks)
+
+
+# ---------- Reszta ----------
 
 func _wybierz(i: int) -> void:
 	_wybrany = i

@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("2_jb78d")
+nazwa = "Bateria"
 opis = "TESTOWA BATERIA do napełnieina Latarki
 "
 ikona = ExtResource("1_tyn30")

@@ -68,6 +68,33 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 	return true
 
 
+# Przenosi zawartość slotu 'z' na slot 'do'.
+# Pusty cel = przeniesienie, ten sam stackowalny przedmiot = scalenie, inaczej = zamiana miejscami.
+func przenies(z: int, do: int) -> void:
+	if z == do or z < 0 or do < 0 or z >= ROZMIAR or do >= ROZMIAR:
+		return
+	var a = sloty[z]
+	var b = sloty[do]
+	if a == null:
+		return
+
+	if b == null:
+		sloty[do] = a
+		sloty[z] = null
+	elif _to_samo(a.item, b.item) and a.item.stackowalny:
+		var max_s := _max_w_slocie(a.item)
+		var dodane: int = mini(max_s - b.ilosc, a.ilosc)
+		b.ilosc += dodane
+		a.ilosc -= dodane
+		if a.ilosc <= 0:
+			sloty[z] = null
+	else:
+		sloty[z] = b
+		sloty[do] = a
+
+	zmieniono.emit()
+
+
 func usun(indeks: int, ilosc: int = 1) -> void:
 	if indeks < 0 or indeks >= ROZMIAR:
 		return
