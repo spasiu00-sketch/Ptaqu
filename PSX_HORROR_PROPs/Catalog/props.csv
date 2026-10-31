@@ -1,0 +1,11 @@
+name,category,triangles,vertices,width_m,height_m,depth_m,texture_px,cutout,glow,mount,description,glb,obj
+gravestone_round,cemetery,42,74,0.620,0.920,0.240,128,no,no,floor,Rounded headstone on a plinth,Models/GLB/cemetery/gravestone_round.glb,Models/OBJ/cemetery/gravestone_round/gravestone_round.obj
+crate_wood,containers,12,24,0.600,0.600,0.600,128,no,no,floor,"Wooden shipping crate, 0.6 m",Models/GLB/containers/crate_wood.glb,Models/OBJ/containers/crate_wood/crate_wood.obj
+drum_oil_rusty,containers,120,104,0.583,0.900,0.583,128,no,no,floor,Rusty 200 l oil drum,Models/GLB/containers/drum_oil_rusty.glb,Models/OBJ/containers/drum_oil_rusty/drum_oil_rusty.obj
+tv_crt,electronics,70,98,0.620,0.480,0.440,128,no,no,floor,Wood-grain CRT television,Models/GLB/electronics/tv_crt.glb,Models/OBJ/electronics/tv_crt/tv_crt.obj
+chair_wooden,furniture,124,248,0.420,0.950,0.400,128,no,no,floor,Old wooden kitchen chair,Models/GLB/furniture/chair_wooden.glb,Models/OBJ/furniture/chair_wooden/chair_wooden.obj
+hospital_bed,hospital,576,775,0.944,1.057,2.222,256,no,no,floor,"Tubular steel hospital bed, raised back, stained mattress",Models/GLB/hospital/hospital_bed.glb,Models/OBJ/hospital/hospital_bed/hospital_bed.obj
+key_old,items,140,149,0.080,0.006,0.026,64,no,no,floor,"Old brass skeleton key, 8 cm",Models/GLB/items/key_old.glb,Models/OBJ/items/key_old/key_old.obj
+fridge_retro,kitchen_bath,166,288,0.747,1.600,0.778,256,no,no,floor,"1950s rounded fridge, rusting enamel and a bloody hand smear",Models/GLB/kitchen_bath/fridge_retro.glb,Models/OBJ/kitchen_bath/fridge_retro/fridge_retro.obj
+candle,lighting,38,51,0.046,0.195,0.046,64,yes,yes,floor,Wax candle with flame card,Models/GLB/lighting/candle.glb,Models/OBJ/lighting/candle/candle.obj
+fence_chainlink,outdoor,62,74,2.060,1.850,0.052,128,yes,no,floor,"Chain-link fence panel, 2 m",Models/GLB/outdoor/fence_chainlink.glb,Models/OBJ/outdoor/fence_chainlink/fence_chainlink.obj

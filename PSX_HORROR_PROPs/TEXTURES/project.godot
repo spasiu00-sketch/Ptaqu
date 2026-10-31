@@ -1,0 +1,38 @@
+; PSX Horror Props Demo - bitkiln - https://bitkiln.itch.io
+; Godot 4.3 or newer. The [importer_defaults] below keep the GLB textures lossless and uncompressed:
+; copy that block into your own project.godot before you add the models to your project.
+
+config_version=5
+
+[application]
+
+config/name="PSX Horror Props Demo"
+config/description="Free sampler of PSX Horror Props by bitkiln: 10 props in a showcase room with the PSX shader. The full pack has 123 props."
+run/main_scene="res://demo/showcase.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+boot_splash/bg_color=Color(0.078, 0.063, 0.071, 1)
+config/icon="res://icon.png"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[importer_defaults]
+
+scene={
+"gltf/embedded_image_handling": 3,
+"meshes/generate_lods": false
+}
+texture={
+"compress/mode": 0,
+"detect_3d/compress_to": 0,
+"mipmaps/generate": true
+}
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+limits/opengl/max_renderable_lights=64
+environment/defaults/default_clear_color=Color(0.02, 0.02, 0.024, 1)

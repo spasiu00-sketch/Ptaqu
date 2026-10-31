@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://dw00jwccwbdlp"
+
+[deps]
+
+files=["res://PSX_HORROR_PROPs/Catalog/props.category.translation", "res://PSX_HORROR_PROPs/Catalog/props.triangles.translation", "res://PSX_HORROR_PROPs/Catalog/props.vertices.translation", "res://PSX_HORROR_PROPs/Catalog/props.width.translation", "res://PSX_HORROR_PROPs/Catalog/props.height.translation", "res://PSX_HORROR_PROPs/Catalog/props.depth.translation", "res://PSX_HORROR_PROPs/Catalog/props.texture.translation", "res://PSX_HORROR_PROPs/Catalog/props.cutout.translation", "res://PSX_HORROR_PROPs/Catalog/props.glow.translation", "res://PSX_HORROR_PROPs/Catalog/props.mount.translation", "res://PSX_HORROR_PROPs/Catalog/props.description.translation", "res://PSX_HORROR_PROPs/Catalog/props.glb.translation", "res://PSX_HORROR_PROPs/Catalog/props.obj.translation"]
+
+source_file="res://PSX_HORROR_PROPs/Catalog/props.csv"
+dest_files=["res://PSX_HORROR_PROPs/Catalog/props.category.translation", "res://PSX_HORROR_PROPs/Catalog/props.triangles.translation", "res://PSX_HORROR_PROPs/Catalog/props.vertices.translation", "res://PSX_HORROR_PROPs/Catalog/props.width.translation", "res://PSX_HORROR_PROPs/Catalog/props.height.translation", "res://PSX_HORROR_PROPs/Catalog/props.depth.translation", "res://PSX_HORROR_PROPs/Catalog/props.texture.translation", "res://PSX_HORROR_PROPs/Catalog/props.cutout.translation", "res://PSX_HORROR_PROPs/Catalog/props.glow.translation", "res://PSX_HORROR_PROPs/Catalog/props.mount.translation", "res://PSX_HORROR_PROPs/Catalog/props.description.translation", "res://PSX_HORROR_PROPs/Catalog/props.glb.translation", "res://PSX_HORROR_PROPs/Catalog/props.obj.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

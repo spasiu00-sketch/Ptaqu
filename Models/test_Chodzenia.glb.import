@@ -43,7 +43,7 @@ _subresources={
 "animations": {
 "mixamo_com_003": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/walk_main.res",
+"save_to_file/fallback_path": "res://Animations/walk_main_hero.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://b7r3rrbnqe026",
 "settings/loop_mode": 0,

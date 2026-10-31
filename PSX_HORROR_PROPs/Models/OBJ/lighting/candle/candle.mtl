@@ -1,0 +1,19 @@
+newmtl candle_mat
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+d 1
+illum 1
+map_Kd candle.png
+map_d candle.png
+
+newmtl candle_glow
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+Ke 1 1 1
+d 1
+illum 1
+map_Kd candle.png
+map_Ke candle.png
+map_d candle.png

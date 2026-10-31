@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c408v08uwrqvx"
+path="res://.godot/imported/chair_wooden.obj-711d538689b67ae0f02f6b2b62c170b2.mesh"
+
+[deps]
+
+files=["res://.godot/imported/chair_wooden.obj-711d538689b67ae0f02f6b2b62c170b2.mesh"]
+
+source_file="res://PSX_HORROR_PROPs/Models/OBJ/furniture/chair_wooden/chair_wooden.obj"
+dest_files=["res://.godot/imported/chair_wooden.obj-711d538689b67ae0f02f6b2b62c170b2.mesh", "res://.godot/imported/chair_wooden.obj-711d538689b67ae0f02f6b2b62c170b2.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
