@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://cr45twhtu7b3b"]
+
+[ext_resource type="Texture2D" uid="uid://b1lexe0q4art4" path="res://kiszak2.png" id="1_nvqpi"]
+[ext_resource type="Script" uid="uid://dqgq76eyosogs" path="res://Skrypts/item.gd" id="2_2cwij"]
+
+[resource]
+script = ExtResource("2_2cwij")
+opis = "Latarka na ziemi
+"
+ikona = ExtResource("1_nvqpi")
+metadata/_custom_type_script = "uid://dqgq76eyosogs"

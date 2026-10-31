@@ -2,18 +2,20 @@
 
 [ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/przedmiot.gd" id="1_08r3g"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="2_0qj7l"]
+[ext_resource type="Resource" uid="uid://cr45twhtu7b3b" path="res://Items/Latarka.tres" id="2_puv63"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_bhunq"]
-size = Vector3(0.5528259, 0.16333008, 0.19915771)
+size = Vector3(0.33805847, 0.16333008, 0.19915771)
 
 [node name="Latarka" type="Node3D" unique_id=1327510861]
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=42601452]
 script = ExtResource("1_08r3g")
+item = ExtResource("2_puv63")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1342691050]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23731995, 0.01679182, -0.009185791)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 0.01679182, -0.009185791)
 shape = SubResource("BoxShape3D_bhunq")
 
-[node name="flashlight" parent="." unique_id=603090498 instance=ExtResource("2_0qj7l")]
+[node name="flashlight" parent="StaticBody3D" unique_id=603090498 instance=ExtResource("2_0qj7l")]
 transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 0, 0)

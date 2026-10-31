@@ -1,9 +1,11 @@
 [gd_resource type="Resource" script_class="Item" format=3 uid="uid://d1jcry5yjguiv"]
 
-[ext_resource type="Script" uid="uid://dqgq76eyosogs" path="res://Items/item.gd" id="1_liaer"]
+[ext_resource type="Texture2D" uid="uid://b1lexe0q4art4" path="res://kiszak2.png" id="1_tyn30"]
+[ext_resource type="Script" uid="uid://dqgq76eyosogs" path="res://Skrypts/item.gd" id="2_jb78d"]
 
 [resource]
-script = ExtResource("1_liaer")
+script = ExtResource("2_jb78d")
 opis = "TESTOWA BATERIA"
+ikona = ExtResource("1_tyn30")
 stackowalny = true
 uzywalny = true
