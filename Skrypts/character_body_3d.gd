@@ -52,6 +52,7 @@ void fragment() {
 const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
 const GlitchScript := preload("res://Skrypts/glitch_kamery.gd")
 const HealthOverlayScript := preload("res://Skrypts/zdrowie_ekran.gd")
+const OczyScript := preload("res://Skrypts/oczy_zjawa.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,
@@ -148,6 +149,12 @@ const INPUT_KEYS := {
 @export_group("Efekty")
 @export var glitch_wlaczony: bool = true   # losowy glitch obrazu (glitch_kamery.gd)
 
+@export_group("Czerwone oczy")
+@export var oczy_wlaczone: bool = true     # losowe zdarzenie z oczami (oczy_zjawa.gd)
+@export var oczy_min_przerwa: float = 25.0 # minimalny czas między zdarzeniami (s)
+@export var oczy_max_przerwa: float = 70.0 # maksymalny czas między zdarzeniami (s)
+@export var oczy_klawisz_testowy: Key = KEY_F5   # F3 / F4 zajęte przez testy życia
+
 # ---------- Stan ----------
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -164,6 +171,10 @@ var held_root: Node3D = null        # węzeł ukrywany/pokazywany (Cofanie)
 var prompt_label: Label
 var inventory_ui = null            # instancja inventory_ui.gd
 var glitch = null                  # instancja glitch_kamery.gd
+var oczy = null                    # instancja oczy_zjawa.gd
+
+# true = zdarzenie (np. czerwone oczy) przejęło kamerę: blokuje myszkę i ruch gracza
+var kontrola_zablokowana: bool = false
 
 # życie
 var health: float = 100.0
@@ -233,6 +244,7 @@ func _ready() -> void:
 	_setup_inventory()
 	_setup_health()
 	_setup_glitch()
+	_setup_oczy()
 	_setup_fatigue_blur()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -300,6 +312,19 @@ func _setup_glitch() -> void:
 		return
 	glitch = GlitchScript.new()
 	add_child(glitch)
+
+
+# Losowe zdarzenie: kamera odwraca się w stronę czerwonych oczu (oczy_zjawa.gd).
+# Na czas zdarzenia skrypt ustawia kontrola_zablokowana = true.
+func _setup_oczy() -> void:
+	if not oczy_wlaczone:
+		return
+	oczy = OczyScript.new()
+	oczy.gracz = self
+	oczy.min_przerwa = oczy_min_przerwa
+	oczy.max_przerwa = oczy_max_przerwa
+	oczy.klawisz_testowy = oczy_klawisz_testowy
+	add_child(oczy)
 
 
 # ---------- Wytrzymałość ----------
@@ -480,6 +505,8 @@ func _update_health(delta: float) -> void:
 func _die() -> void:
 	_dead = true
 	died.emit()
+	if oczy != null:
+		oczy.wlaczony = false   # po śmierci nie startują nowe zdarzenia z oczami
 	if _inventory_open():
 		_toggle_inventory()
 	if prompt_label:
@@ -628,7 +655,8 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("inventory"):
-		_toggle_inventory()
+		if not kontrola_zablokowana:   # w trakcie zdarzenia nie otwieramy ekwipunku
+			_toggle_inventory()
 		return
 
 	# przy otwartym ekwipunku: tylko Esc zamyka, reszta wejścia idzie do UI
@@ -637,10 +665,12 @@ func _input(event: InputEvent) -> void:
 			_toggle_inventory()
 		return
 
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	# w trakcie zdarzenia kamerą steruje skrypt zdarzenia, myszka jest ignorowana
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
+			and not kontrola_zablokowana:
 		_look(event.relative)
 
-	if event.is_action_pressed("interact"):
+	if event.is_action_pressed("interact") and not kontrola_zablokowana:
 		_try_interact()
 
 	if event.is_action_pressed("ui_cancel"):
@@ -705,7 +735,7 @@ func _create_prompt_label() -> void:
 
 func _update_prompt() -> void:
 	var target := _get_interact_target()
-	prompt_label.visible = target != null and not _inventory_open()
+	prompt_label.visible = target != null and not _inventory_open() and not kontrola_zablokowana
 	if target:
 		var text = target.get("prompt_text")
 		prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
@@ -896,7 +926,7 @@ func _physics_process(delta: float) -> void:
 	_h_speed = Vector2(velocity.x, velocity.z).length()
 	_moving = is_on_floor() and _h_speed > MIN_MOVE_SPEED
 	_sprinting = _moving and not _crouching and not _inventory_open() \
-			and Input.is_action_pressed("sprint") and _can_sprint()
+			and not kontrola_zablokowana and Input.is_action_pressed("sprint") and _can_sprint()
 
 	_update_stamina(delta)
 	_update_head_bob(delta)
@@ -928,20 +958,21 @@ func _physics_dead(delta: float) -> void:
 func _apply_gravity_and_jump(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= gravity * delta
-	elif not _crouching and not _inventory_open() and Input.is_action_just_pressed("jump"):   # w kucki i z ekwipunkiem nie skaczemy
+	elif not _crouching and not _inventory_open() and not kontrola_zablokowana \
+			and Input.is_action_just_pressed("jump"):   # w kucki, z ekwipunkiem i w trakcie zdarzenia nie skaczemy
 		velocity.y = JUMP_VELOCITY
 
 
 func _apply_movement(delta: float) -> void:
 	var input_dir := Vector2.ZERO
-	if not _inventory_open():
+	if not _inventory_open() and not kontrola_zablokowana:
 		input_dir = Input.get_vector("left", "right", "forward", "back")
 	var direction := (basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 
 	var speed := SPEED
 	if _crouching:
 		speed = crouch_speed   # w kucki nie ma sprintu
-	elif Input.is_action_pressed("sprint") and _can_sprint():
+	elif Input.is_action_pressed("sprint") and _can_sprint() and not kontrola_zablokowana:
 		speed = SPRINT_SPEED
 
 	var rate := acceleration if direction != Vector3.ZERO else deceleration
