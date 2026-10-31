@@ -89,7 +89,9 @@ const INPUT_KEYS := {
 @export var regen_speed: float = 1.5                   # punktów życia na sekundę (1.5 = pełne życie w ok. minutę)
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0   # poniżej tego % życia ekran zaczyna ciemnieć
 @export var restart_on_death: bool = true              # po śmierci wczytaj scenę od nowa
-@export var death_delay: float = 3.0                   # ile sekund po śmierci do restartu
+@export var death_delay: float = 5.0                   # ile sekund po śmierci do restartu
+@export var death_text: String = "NIE ZDANE"           # napis po śmierci
+@export var death_text_delay: float = 1.0              # po ilu sekundach od śmierci pojawia się napis
 @export var debug_health_keys: bool = true             # F3 = -10 życia, F4 = +10 życia (do testów, wyłącz w wersji końcowej)
 
 @export_group("Życie - oddech i kaszel")
@@ -513,9 +515,52 @@ func _die() -> void:
 		prompt_label.visible = false
 	if health_overlay:
 		health_overlay.smierc()
+	_show_death_text()
 	if restart_on_death:
 		await get_tree().create_timer(death_delay).timeout
 		get_tree().reload_current_scene()
+
+
+# Napis po śmierci w stylu tytułu z menu (layer 4: nad overlayem życia, HUD i ekwipunkiem)
+func _show_death_text() -> void:
+	var warstwa := CanvasLayer.new()
+	warstwa.name = "DeathTextLayer"
+	warstwa.layer = 4
+	add_child(warstwa)
+
+	# czcionka jak w MainMenu.gd
+	var base := SystemFont.new()
+	base.font_names = PackedStringArray(
+		["Georgia", "Palatino Linotype", "Times New Roman", "DejaVu Serif", "serif"])
+	base.font_weight = 700
+	base.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	base.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
+	base.generate_mipmaps = true
+	var font := FontVariation.new()
+	font.base_font = base
+	font.spacing_glyph = 5
+
+	var napis := Label.new()
+	napis.set_anchors_preset(Control.PRESET_FULL_RECT)
+	napis.text = death_text
+	napis.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	napis.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	napis.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	napis.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	napis.add_theme_font_override("font", font)
+	napis.add_theme_font_size_override("font_size", 120)
+	napis.add_theme_color_override("font_color", Color(0.92, 0.89, 0.82))
+	napis.add_theme_color_override("font_outline_color", Color(0.03, 0.0, 0.0, 0.95))
+	napis.add_theme_constant_override("outline_size", 6)
+	napis.add_theme_color_override("font_shadow_color", Color(0.62, 0.07, 0.06))
+	napis.add_theme_constant_override("shadow_offset_x", 5)
+	napis.add_theme_constant_override("shadow_offset_y", 5)
+	napis.modulate.a = 0.0
+	warstwa.add_child(napis)
+
+	var tween := create_tween()
+	tween.tween_interval(death_text_delay)
+	tween.tween_property(napis, "modulate:a", 1.0, 1.5)
 
 
 # ---------- Ekwipunek ----------

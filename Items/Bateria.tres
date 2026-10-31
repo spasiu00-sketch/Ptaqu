@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Item" format=3 uid="uid://d1jcry5yjguiv"]
 
-[ext_resource type="Texture2D" uid="uid://b1lexe0q4art4" path="res://kiszak2.png" id="1_tyn30"]
+[ext_resource type="Texture2D" uid="uid://bxv61b6vn8xym" path="res://Grafiki_Inventory/images.png" id="1_tyn30"]
 [ext_resource type="Script" uid="uid://dqgq76eyosogs" path="res://Skrypts/item.gd" id="2_jb78d"]
 
 [resource]
