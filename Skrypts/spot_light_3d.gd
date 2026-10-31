@@ -9,6 +9,11 @@ extends SpotLight3D
 @export var flicker_below: float = 20.0            # poniżej tego % zaczyna migotać
 @export var hold_time: float = 3.0                 # ile sekund trzymać F, żeby przeładować
 
+# Przedmiot "Bateria" zużywany przy przeładowaniu.
+# Puste = latarka szuka w ekwipunku przedmiotu o nazwie z pola 'Battery Name'.
+@export var battery_item: Item
+@export var battery_name: String = "Bateria"
+
 # Węzeł zawierający model i AnimationPlayery. Puste = znajdzie sam (idzie w górę drzewa)
 @export var model_root: Node3D
 
@@ -16,6 +21,7 @@ extends SpotLight3D
 @export var reload_animations: Array[StringName] = [&"BateriaAction", &"CylinderAction", &"Cylinder_001Action"]
 @export var debug_animations: bool = false
 @export var debug_input: bool = false
+@export var debug_reload: bool = true              # wypisuje w Output, dlaczego przeładowanie ruszyło albo nie
 
 @export_group("Dźwięki")
 @export var reload_sound: AudioStream              # dźwięk wymiany baterii
@@ -24,6 +30,7 @@ extends SpotLight3D
 @export var toggle_sound: AudioStream              # klik włączania/wyłączania
 @export var flicker_start_sound: AudioStream       # gdy bateria zaczyna migotać
 @export var dead_sound: AudioStream                # gdy bateria padnie
+@export var no_battery_sound: AudioStream          # próba przeładowania bez baterii w ekwipunku
 @export var sound_volume_db: float = 0.0
 
 const PLAYER_PREFIX := "FlashlightAnim_"
@@ -409,8 +416,7 @@ func _process(delta: float) -> void:
 		_f_time += delta
 		if _f_time >= hold_time:
 			_f_handled = true
-			if battery < max_battery:
-				reload_flashlight()
+			_try_reload()
 
 	if not is_on or is_busy:
 		return
@@ -446,6 +452,55 @@ func _flicker(delta: float, strength: float) -> void:
 		light_energy = base_energy * randf_range(0.25, 1.0)
 
 
+# ---------- Przeładowanie: wymaga baterii w ekwipunku (poziom baterii latarki nie ma znaczenia) ----------
+
+func _dbg(tekst: String) -> void:
+	if debug_reload:
+		print("[latarka] ", tekst)
+
+
+# Zwraca przedmiot-baterię: najpierw z pola 'Battery Item', a jeśli puste,
+# szuka w ekwipunku przedmiotu o nazwie 'Battery Name'
+func _znajdz_baterie(inv: Node) -> Item:
+	if battery_item != null:
+		return battery_item
+	var szukana := battery_name.strip_edges().to_lower()
+	for slot in inv.sloty:
+		if slot != null and slot.item != null:
+			if String(slot.item.nazwa).strip_edges().to_lower() == szukana:
+				return slot.item
+	return null
+
+
+# Sprawdza, czy gracz ma baterię; jeśli tak, zabiera jedną i odpala animację wymiany
+func _try_reload() -> void:
+	print("[latarka] przytrzymano F, próba przeładowania (bateria latarki: %.1f / %.1f)" % [battery, max_battery])
+
+	var inv := get_node_or_null("/root/Inventory")
+	if inv == null:
+		print("[latarka] BŁĄD: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload, nazwa dokładnie: Inventory)")
+		return
+
+	var bateria := _znajdz_baterie(inv)
+	if bateria == null:
+		print("[latarka] w ekwipunku nie ma przedmiotu '%s' (Battery Item puste), przeładowanie zablokowane" % battery_name)
+		_play_sfx(_sfx_alert, no_battery_sound)
+		return
+
+	var ilosc: int = inv.ile(bateria)
+	_dbg("baterii w ekwipunku: %d" % ilosc)
+
+	if ilosc <= 0:
+		print("[latarka] brak baterii w ekwipunku, przeładowanie zablokowane")
+		_play_sfx(_sfx_alert, no_battery_sound)
+		return
+
+	inv.usun_item(bateria, 1)
+	print("[latarka] zużyto 1 baterię, startuje animacja")
+	reload_flashlight()
+
+
+# Sama animacja + naładowanie (bez sprawdzania ekwipunku, np. do testów)
 func reload_flashlight() -> void:
 	is_busy = true
 	_set_light(false)   # światło gaśnie, model zostaje widoczny

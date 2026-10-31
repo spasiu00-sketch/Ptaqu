@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://v88iw06653es" path="res://Scenes/jumpscare.tscn" id="5_xkwxp"]
 [ext_resource type="Texture2D" uid="uid://con0eb3m0hohh" path="res://JUMP/kiszak2.png" id="6_u7jam"]
 [ext_resource type="PackedScene" uid="uid://butl8frkc3sqx" path="res://Scenes/słup.tscn" id="7_avyfn"]
+[ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
 albedo_texture = ExtResource("1_u7jam")
@@ -101,7 +102,7 @@ grow_vertical = 2
 mouse_filter = 2
 metadata/_edit_use_anchors_ = true
 
-[node name="Node3D" parent="." unique_id=1327510861 instance=ExtResource("4_redxk")]
+[node name="Latarka" parent="." unique_id=1327510861 instance=ExtResource("4_redxk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36014593, -3.958418)
 
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
@@ -115,8 +116,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7940283, 0.5621176, -4.741
 [node name="Area3D" parent="Node3D4" index="0" unique_id=1564986556]
 obraz = ExtResource("6_u7jam")
 
-[node name="Node3D5" parent="." unique_id=2034255742 instance=ExtResource("7_avyfn")]
+[node name="Kiszak" parent="." unique_id=2034255742 instance=ExtResource("7_avyfn")]
 transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -4, 1, 0)
 
-[editable path="Node3D"]
+[node name="Bateria" parent="." unique_id=233667880 instance=ExtResource("9_ce2wr")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0.2885847, 0.2568617, -4.4689827)
+
+[editable path="Latarka"]
 [editable path="Node3D4"]
+[editable path="Bateria"]

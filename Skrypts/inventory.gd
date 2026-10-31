@@ -16,6 +16,16 @@ func _max_w_slocie(item: Item) -> int:
 	return item.max_stack if item.stackowalny else 1
 
 
+# Ten sam przedmiot = ten sam obiekt albo ten sam plik .tres
+# (chroni przed sytuacją, gdy ta sama bateria istnieje jako dwie osobne instancje zasobu)
+func _to_samo(a: Item, b: Item) -> bool:
+	if a == null or b == null:
+		return false
+	if a == b:
+		return true
+	return a.resource_path != "" and a.resource_path == b.resource_path
+
+
 # Czy cała podana ilość zmieści się w ekwipunku
 func ma_miejsce(item: Item, ilosc: int = 1) -> bool:
 	if item == null:
@@ -25,7 +35,7 @@ func ma_miejsce(item: Item, ilosc: int = 1) -> bool:
 	for slot in sloty:
 		if slot == null:
 			wolne += na_slot
-		elif slot.item == item:
+		elif _to_samo(slot.item, item):
 			wolne += maxi(na_slot - slot.ilosc, 0)
 	return wolne >= ilosc
 
@@ -40,7 +50,7 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 	for slot in sloty:
 		if ilosc <= 0:
 			break
-		if slot != null and slot.item == item and slot.ilosc < na_slot:
+		if slot != null and _to_samo(slot.item, item) and slot.ilosc < na_slot:
 			var dodane: int = mini(na_slot - slot.ilosc, ilosc)
 			slot.ilosc += dodane
 			ilosc -= dodane
@@ -70,10 +80,26 @@ func usun(indeks: int, ilosc: int = 1) -> void:
 	zmieniono.emit()
 
 
+# Usuwa podaną ilość danego przedmiotu z dowolnych slotów (od końca).
+# Zwraca false i nic nie usuwa, gdy gracz ma go za mało.
+func usun_item(item: Item, ilosc: int = 1) -> bool:
+	if item == null or ilosc <= 0 or ile(item) < ilosc:
+		return false
+	for i in range(ROZMIAR - 1, -1, -1):
+		if ilosc <= 0:
+			break
+		var slot = sloty[i]
+		if slot != null and _to_samo(slot.item, item):
+			var zabrane: int = mini(slot.ilosc, ilosc)
+			usun(i, zabrane)
+			ilosc -= zabrane
+	return true
+
+
 func ile(item: Item) -> int:
 	var suma := 0
 	for slot in sloty:
-		if slot != null and slot.item == item:
+		if slot != null and _to_samo(slot.item, item):
 			suma += slot.ilosc
 	return suma
 

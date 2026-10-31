@@ -4,8 +4,8 @@ extends StaticBody3D
 
 # Tekst wyświetlany na ekranie po najechaniu na przedmiot (po "[E] ")
 @export var prompt_text: String = "Podnieś"
-@export var daje_latarke: bool = true   # true = ten przedmiot to latarka (odblokowuje ją)
-@export var item: Item                  # opcjonalnie: przedmiot wkładany do ekwipunku
+@export var daje_latarke: bool = true   # true = ten przedmiot to latarka (odblokowuje ją). DLA BATERII ODZNACZ!
+@export var item: Item                  # przedmiot wkładany do ekwipunku (dla baterii: bateria.tres)
 @export var ilosc: int = 1
 # Co usunąć po podniesieniu. Puste = automatycznie: korzeń sceny przedmiotu (np. "Latarka"),
 # a jeśli StaticBody3D leży bezpośrednio w scenie poziomu, tylko ten węzeł.
@@ -25,13 +25,26 @@ func ustaw_wyrzucony(wyrzucony: Item, zapisana_bateria: float, korzen: Node) -> 
 
 
 func interact(player: Node) -> void:
+	# przedmiot bez Item i bez latarki nie ma co dać graczowi: zostaje na ziemi
+	if item == null and not daje_latarke:
+		print("[przedmiot] '%s': pole Item jest PUSTE i Daje Latarke odznaczone, nic nie podniesiono. Przypisz Item (np. bateria.tres) w Inspektorze." % name)
+		return
+
+	if daje_latarke and item != null and not item.jest_latarka:
+		print("[przedmiot] UWAGA '%s': ma Item '%s' ORAZ zaznaczone Daje Latarke. Jeśli to nie latarka, odznacz Daje Latarke." % [name, item.nazwa])
+
 	var cel := _cel_usuniecia()
 	_przygotuj_item(cel)
 
 	if item != null:
 		var inv := get_node_or_null("/root/Inventory")
-		if inv == null or not inv.dodaj(item, ilosc):
-			return   # brak miejsca albo brak autoloadu: przedmiot zostaje na ziemi
+		if inv == null:
+			print("[przedmiot] BŁĄD: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload)")
+			return
+		if not inv.dodaj(item, ilosc):
+			print("[przedmiot] brak miejsca w ekwipunku na '%s'" % item.nazwa)
+			return   # brak miejsca: przedmiot zostaje na ziemi
+		print("[przedmiot] dodano do ekwipunku: %s x%d" % [item.nazwa, ilosc])
 
 	if daje_latarke and player.has_method("give_flashlight"):
 		# najpierw przywracamy baterię, potem włączamy latarkę

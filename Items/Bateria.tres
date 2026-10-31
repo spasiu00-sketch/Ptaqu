@@ -5,7 +5,8 @@
 
 [resource]
 script = ExtResource("2_jb78d")
-opis = "TESTOWA BATERIA"
+opis = "TESTOWA BATERIA do napełnieina Latarki
+"
 ikona = ExtResource("1_tyn30")
 stackowalny = true
 uzywalny = true
