@@ -2,6 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://dg27nbnq2d5ya" path="res://Materials/drzewo.png" id="1_u7jam"]
 [ext_resource type="PackedScene" uid="uid://csrmuvwj0fefo" path="res://Scenes/character.tscn" id="2_xkwxp"]
+[ext_resource type="Script" uid="uid://bnq21uqy8jhwu" path="res://Skrypts/glitch_kamery.gd" id="3_bfrei"]
 [ext_resource type="Shader" uid="uid://cntbcorcdrqgf" path="res://Shader/ps2_post.gdshader" id="3_ipysq"]
 [ext_resource type="PackedScene" uid="uid://5qvdsp11oe4g" path="res://Scenes/Flashlight.tscn" id="4_redxk"]
 [ext_resource type="PackedScene" uid="uid://v88iw06653es" path="res://Scenes/jumpscare.tscn" id="5_xkwxp"]
@@ -87,6 +88,8 @@ environment = SubResource("Environment_sn0t7")
 camera_attributes = SubResource("CameraAttributesPractical_bhunq")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2067496395]
+script = ExtResource("3_bfrei")
+debug_glitch = true
 
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer" unique_id=2141040355]
 material = SubResource("ShaderMaterial_a0tk4")
@@ -103,9 +106,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36014593, -3.958418)
 
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 3.0422509, -4.074333)
-
-[node name="Node3D3" parent="." unique_id=1834358232 instance=ExtResource("5_xkwxp")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5621176, -4.6398582)
+light_color = Color(0.7073948, 0.3970721, 0.25786108, 1)
+light_energy = 23.635
 
 [node name="Node3D4" parent="." unique_id=1458858582 instance=ExtResource("5_xkwxp")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7940283, 0.5621176, -4.741826)
@@ -116,4 +118,6 @@ obraz = ExtResource("6_u7jam")
 [node name="Node3D5" parent="." unique_id=2034255742 instance=ExtResource("7_avyfn")]
 transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -4, 1, 0)
 
+[editable path="Node3D"]
+[editable path="Node3D/StaticBody3D/Flashlight"]
 [editable path="Node3D4"]

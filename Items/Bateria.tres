@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://d1jcry5yjguiv"]
+
+[ext_resource type="Script" uid="uid://dqgq76eyosogs" path="res://Items/item.gd" id="1_liaer"]
+
+[resource]
+script = ExtResource("1_liaer")
+opis = "TESTOWA BATERIA"
+stackowalny = true
+uzywalny = true

@@ -1,0 +1,87 @@
+[gd_scene format=3 uid="uid://csrmuvwj0fefo"]
+
+[ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
+[ext_resource type="Script" path="res://Skrypts/character.gd" id="1_pjt0s"]
+[ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://Skrypts/camera_3d.gd" id="3_0qfo5"]
+[ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/spot_light_3d.gd" id="3_wa5vi"]
+[ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="4_px5sl"]
+[ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
+[ext_resource type="AudioStream" uid="uid://dfcjcf8s8lsj2" path="res://Sounds/88291__s_dij__whisk_reload_05.wav" id="5_jb3kq"]
+[ext_resource type="AudioStream" uid="uid://byr1bigr3plrn" path="res://Sounds/421475__jaszunio15__click_143.wav" id="6_jb3kq"]
+[ext_resource type="AudioStream" uid="uid://ccacggeasx808" path="res://Sounds/232447__mmaruska__lights-flicker-on.wav" id="7_7tnxx"]
+[ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="8_bwfjh"]
+[ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Skrypts/trzymany_obiekt.gd" id="11_l1rcp"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
+radius = 0.26220703
+height = 1.2595339
+
+[node name="Node3D" type="Node3D" unique_id=94253958]
+script = ExtResource("1_pjt0s")
+
+[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
+script = ExtResource("1_glpr6")
+crouch_height = null
+camera_bob_enabled = null
+bob_freq = null
+bob_amp_y = null
+bob_amp_x = null
+bob_roll = null
+camera_bob_smooth = null
+footstep_sounds = null
+step_distance = null
+footstep_volume_db = null
+bob_amount = null
+sway_amount = null
+sway_max = null
+sway_smooth = null
+start_with_flashlight = null
+held_root_name = null
+held_model_name = null
+body_node_name = null
+idle_animation = null
+walk_animation = null
+crouch_idle_animation = null
+crouch_walk_animation = null
+debug_body_animation = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
+transform = Transform3D(0.9979775, 0.005302255, -0.06334571, -0.006189114, 0.99988544, -0.013812293, 0.06326523, 0.0141764125, 0.997896, -0.0428108, 0.52046645, -0.04041613)
+shape = SubResource("CapsuleShape3D_bhunq")
+
+[node name="Camera3D" type="Camera3D" parent="CharacterBody3D" unique_id=794933290]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03952968, 0.9345341, -0.052930355)
+doppler_tracking = 2
+near = 0.052
+script = ExtResource("3_0qfo5")
+
+[node name="Cofanie" type="Node3D" parent="CharacterBody3D/Camera3D" unique_id=397148804 node_paths=PackedStringArray("obiekt", "swiatlo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03952968, 0, 0)
+script = ExtResource("11_l1rcp")
+obiekt = NodePath("Untitled_test animacji")
+swiatlo = NodePath("Untitled_test animacji/HeldFlashlight")
+
+[node name="Untitled_test animacji" parent="CharacterBody3D/Camera3D/Cofanie" unique_id=430140981 instance=ExtResource("4_px5sl")]
+transform = Transform3D(-3.4969112e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.4969112e-09, 0.55202055, -0.26814213, -0.6281911)
+
+[node name="HeldFlashlight" type="SpotLight3D" parent="CharacterBody3D/Camera3D/Cofanie/Untitled_test animacji" unique_id=2097009686]
+transform = Transform3D(-5.4639236e-07, 0, -12.5, 0, 12.5, 0, 12.5, 0, -5.4639236e-07, 5.4493685, -0.036695957, 0.11889601)
+light_color = Color(1, 0.8666667, 1, 1)
+spot_range = 10.0
+script = ExtResource("3_wa5vi")
+reload_sound = ExtResource("5_jb3kq")
+toggle_sound = ExtResource("6_jb3kq")
+flicker_start_sound = ExtResource("7_7tnxx")
+dead_sound = ExtResource("8_bwfjh")
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="CharacterBody3D/Camera3D/Cofanie/Untitled_test animacji" unique_id=400462674]
+
+[node name="InteractRay" type="RayCast3D" parent="CharacterBody3D/Camera3D" unique_id=1844702724]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08896881, 2.9802322e-08, -5.9604645e-08)
+target_position = Vector3(0, 0, -2.5)
+collide_with_areas = true
+debug_shape_custom_color = Color(0.73333335, 0, 0, 1)
+
+[node name="FootstepPlayer" type="AudioStreamPlayer3D" parent="CharacterBody3D" unique_id=2063876596]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8494679, 0)
+stream = ExtResource("4_wfnr8")
