@@ -13,6 +13,19 @@ const IDLE_BREATH_AMOUNT := 0.002
 const IDLE_BREATH_SPEED := 1.5       # rad/s
 const CAPSULE_MIN_MARGIN := 0.01     # kapsuła nie może być niższa niż 2 * promień
 
+# head bob (kołysanie kamery przy chodzeniu)
+const BOB_FREQ := 2.4                # szybkość kołysania
+const BOB_AMP_Y := 0.04              # góra-dół (małe)
+const BOB_AMP_X := 0.05              # na boki
+const BOB_ROLL := 0.025              # przechył kamery (w radianach)
+const BOB_SMOOTH := 10.0             # płynność włączania/wyłączania efektu
+const BOB_SPRINT_AMP := 1.6          # mnożnik siły kołysania przy sprincie
+const BOB_SPRINT_ROLL := 1.8         # mnożnik przechyłu przy sprincie
+const BOB_CROUCH_AMP := 0.5          # mnożnik siły kołysania w kucki
+
+# dźwięki sprintu (sapanie, serce)
+const SOUND_SILENT_DB := -40.0       # tyle uznajemy za ciszę przy wyciszaniu / wzmacnianiu
+
 # preload zamiast class_name: działa nawet, gdy Godot nie odświeżył listy klas
 const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
 const GlitchScript := preload("res://Skrypts/glitch_kamery.gd")
@@ -48,6 +61,22 @@ const INPUT_KEYS := {
 @export var footstep_volume_db: float = 0.0
 @export var debug_footsteps: bool = false              # true = wypisuje "krok" w Output
 
+@export_group("Sprint - sapanie")
+@export var breath_sound: AudioStream                  # dźwięk sapania (gra w kółko podczas sprintu)
+@export var breath_volume_db: float = -4.0
+@export var breath_start_delay: float = 0.0            # ile sekund sprintu, zanim zacznie sapać
+@export var breath_recovery_time: float = 4.0          # ile sekund sapie po przestaniu biegu
+
+@export_group("Sprint - bicie serca")
+@export var heartbeat_sound: AudioStream               # dźwięk bicia serca (gra w kółko podczas sprintu)
+@export var heartbeat_volume_db: float = -2.0
+@export var heartbeat_start_delay: float = 0.0         # ile sekund sprintu, zanim serce zacznie bić
+@export var heartbeat_recovery_time: float = 6.0       # ile sekund bije po przestaniu biegu
+
+@export_group("Sprint - dźwięk ogólne")
+@export var sound_fade_time: float = 0.5               # czas płynnego włączania / wyciszania dźwięków
+@export var debug_sprint_audio: bool = false           # true = wypisuje w Output, kiedy dźwięki startują
+
 @export_group("Latarka w ręku")
 @export var bob_amount: float = 0.012     # siła kołysania przy chodzeniu
 @export var sway_amount: float = 0.0015   # siła opóźnienia przy obracaniu myszką
@@ -67,6 +96,8 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 @onready var camera: Camera3D = $Camera3D
 
 var footstep_player = null          # AudioStreamPlayer lub AudioStreamPlayer3D
+var breath_player: AudioStreamPlayer = null
+var heart_player: AudioStreamPlayer = null
 var interact_ray: RayCast3D = null
 var flashlight: Flashlight = null
 var held_flashlight: Node3D = null  # węzeł kołysany przy chodzeniu (model latarki)
@@ -78,7 +109,13 @@ var glitch = null                  # instancja glitch_kamery.gd
 # ruch (liczone raz na klatkę fizyki)
 var _h_speed: float = 0.0
 var _moving: bool = false
+var _sprinting: bool = false
 var step_progress: float = 0.0
+
+# dźwięki sprintu
+var _sprint_time: float = 0.0     # ile sekund z rzędu gracz sprintuje
+var _breath_left: float = 0.0     # ile jeszcze sekund ma grać sapanie
+var _heart_left: float = 0.0      # ile jeszcze sekund ma grać serce
 
 # kucanie
 var _crouching: bool = false
@@ -88,6 +125,11 @@ var _stand_h: float = 1.8     # nadpisywane wysokością z kształtu kolizji
 var _crouch_h: float = 1.1
 var _stand_y: float = 0.0     # pozycja Y węzła kolizji w staniu
 var _cam_offset: float = 0.0  # aktualne przesunięcie kamery w dół (<= 0)
+
+# head bob kamery
+var bob_czas := 0.0
+var _head_bob_offset := Vector3.ZERO   # aktualne przesunięcie kamery od bobu
+var _head_bob_roll: float = 0.0        # aktualny przechył kamery od bobu
 
 # latarka
 var held_base_pos := Vector3.ZERO
@@ -105,6 +147,7 @@ func _ready() -> void:
 	set_process(false)   # _process tylko gdy trzeba (latarka w ręku / ruch kamery przy kucaniu)
 	_setup_input_actions()
 	_setup_footstep_player()
+	_setup_sprint_audio()
 	_create_prompt_label()
 	_find_nodes()
 	_setup_flashlight()
@@ -425,6 +468,84 @@ func _play_step() -> void:
 		print("krok")
 
 
+# ---------- Dźwięki sprintu: sapanie + bicie serca ----------
+
+func _setup_sprint_audio() -> void:
+	breath_player = _make_loop_player("BreathPlayer", breath_volume_db)
+	heart_player = _make_loop_player("HeartPlayer", heartbeat_volume_db)
+	_prepare_loop(breath_sound)
+	_prepare_loop(heartbeat_sound)
+	if breath_sound == null:
+		push_warning("Brak dźwięku sapania: uzupełnij 'Breath Sound' w Inspektorze gracza (grupa Sprint - sapanie)")
+	if heartbeat_sound == null:
+		push_warning("Brak dźwięku serca: uzupełnij 'Heartbeat Sound' w Inspektorze gracza (grupa Sprint - bicie serca)")
+
+
+func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlayer:
+	var p := find_child(player_name, true, false) as AudioStreamPlayer
+	if p == null:
+		p = AudioStreamPlayer.new()
+		p.name = player_name
+		add_child(p)
+	p.volume_db = volume_db
+	return p
+
+
+# MP3 / OGG zapętlamy w kodzie (bez płynnych przerw). WAV nie jest ruszany,
+# bo ciągłość zapewnia ponowne odpalenie dźwięku zaraz po jego końcu (patrz _drive_loop).
+func _prepare_loop(stream: AudioStream) -> void:
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
+
+
+func _update_sprint_audio(delta: float) -> void:
+	if _sprinting:
+		_sprint_time += delta
+	else:
+		_sprint_time = 0.0
+
+	_breath_left = _tick_sound_timer(_breath_left, breath_start_delay, breath_recovery_time, delta)
+	_heart_left = _tick_sound_timer(_heart_left, heartbeat_start_delay, heartbeat_recovery_time, delta)
+
+	_drive_loop(breath_player, breath_sound, breath_volume_db, _breath_left > 0.0, delta)
+	_drive_loop(heart_player, heartbeat_sound, heartbeat_volume_db, _heart_left > 0.0, delta)
+
+
+# Podczas sprintu (po opóźnieniu startu) licznik jest zawsze pełny.
+# Po zakończeniu sprintu odlicza do zera, a dźwięk gra do tego czasu.
+func _tick_sound_timer(left: float, start_delay: float, recovery: float, delta: float) -> float:
+	if _sprinting:
+		if _sprint_time >= start_delay:
+			return maxf(recovery, 0.01)
+		return left
+	return maxf(left - delta, 0.0)
+
+
+# Gra dźwięk w kółko, dopóki 'active' jest true. Włącza i wyłącza go płynnie.
+func _drive_loop(player: AudioStreamPlayer, stream: AudioStream, base_db: float, active: bool, delta: float) -> void:
+	if player == null or stream == null:
+		return
+
+	var fade_speed := absf(base_db - SOUND_SILENT_DB) / maxf(sound_fade_time, 0.05)
+
+	if active:
+		if not player.playing:
+			player.stream = stream
+			player.volume_db = SOUND_SILENT_DB   # start od ciszy, potem płynnie głośniej
+			player.play()
+			if debug_sprint_audio:
+				print("start dźwięku: ", player.name)
+		player.volume_db = move_toward(player.volume_db, base_db, fade_speed * delta)
+	elif player.playing:
+		player.volume_db -= fade_speed * delta
+		if player.volume_db <= SOUND_SILENT_DB:
+			player.stop()
+			if debug_sprint_audio:
+				print("koniec dźwięku: ", player.name)
+
+
 # ---------- _process: kamera przy kucaniu + latarka w ręku ----------
 
 func _process(delta: float) -> void:
@@ -482,7 +603,10 @@ func _physics_process(delta: float) -> void:
 
 	_h_speed = Vector2(velocity.x, velocity.z).length()
 	_moving = is_on_floor() and _h_speed > MIN_MOVE_SPEED
+	_sprinting = _moving and not _crouching and not _inventory_open() and Input.is_action_pressed("sprint")
 
+	_update_head_bob(delta)
+	_update_sprint_audio(delta)
 	_handle_footsteps(delta)
 	_update_prompt()
 
@@ -511,6 +635,43 @@ func _apply_movement(delta: float) -> void:
 			Vector2(direction.x, direction.z) * speed, rate * delta)
 	velocity.x = horizontal.x
 	velocity.z = horizontal.y
+
+
+# ---------- Head bob kamery ----------
+
+# Kamera kołysze się góra-dół, na boki i przechyla (roll). Przy sprincie efekt jest mocniejszy
+# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycja liczona jako różnica (offset),
+# więc nie gryzie się z kucaniem. Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
+func _update_head_bob(delta: float) -> void:
+	var cel_poz := Vector3.ZERO
+	var cel_roll := 0.0
+
+	if _moving:
+		var amp := 1.0
+		var roll_amp := 1.0
+		if _sprinting:
+			amp = BOB_SPRINT_AMP
+			roll_amp = BOB_SPRINT_ROLL
+		elif _crouching:
+			amp = BOB_CROUCH_AMP
+			roll_amp = BOB_CROUCH_AMP
+
+		bob_czas += delta * _h_speed * BOB_FREQ * 0.5   # szybszy ruch = szybsze kroki
+		cel_poz = Vector3(
+			cos(bob_czas) * BOB_AMP_X * amp,             # na boki
+			sin(bob_czas * 2.0) * BOB_AMP_Y * amp,       # góra-dół (dwa razy częściej niż boki)
+			0.0
+		)
+		cel_roll = cos(bob_czas) * BOB_ROLL * roll_amp   # przechył w rytm kroków
+
+	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
+
+	var nowy_poz := _head_bob_offset.lerp(cel_poz, smooth)
+	camera.position += nowy_poz - _head_bob_offset
+	_head_bob_offset = nowy_poz
+
+	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
+	camera.rotation.z = _head_bob_roll
 
 
 # ---------- Pomocnicze ----------

@@ -1,9 +1,11 @@
 [gd_scene format=3 uid="uid://csrmuvwj0fefo"]
 
 [ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
-[ext_resource type="Script" path="res://Skrypts/character.gd" id="1_pjt0s"]
+[ext_resource type="Script" uid="uid://p0irveodxscj" path="res://Skrypts/character.gd" id="1_pjt0s"]
 [ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://Skrypts/camera_3d.gd" id="3_0qfo5"]
+[ext_resource type="AudioStream" uid="uid://cvdk3rorigxdy" path="res://Sounds/serce.mp3" id="3_le1tg"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/spot_light_3d.gd" id="3_wa5vi"]
+[ext_resource type="AudioStream" uid="uid://dexclg5as7mje" path="res://Sounds/hasin2004-breathing-fast-247449.mp3" id="4_2daya"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Untitled_test animacji.glb" id="4_px5sl"]
 [ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
 [ext_resource type="AudioStream" uid="uid://dfcjcf8s8lsj2" path="res://Sounds/88291__s_dij__whisk_reload_05.wav" id="5_jb3kq"]
@@ -21,29 +23,8 @@ script = ExtResource("1_pjt0s")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
-crouch_height = null
-camera_bob_enabled = null
-bob_freq = null
-bob_amp_y = null
-bob_amp_x = null
-bob_roll = null
-camera_bob_smooth = null
-footstep_sounds = null
-step_distance = null
-footstep_volume_db = null
-bob_amount = null
-sway_amount = null
-sway_max = null
-sway_smooth = null
-start_with_flashlight = null
-held_root_name = null
-held_model_name = null
-body_node_name = null
-idle_animation = null
-walk_animation = null
-crouch_idle_animation = null
-crouch_walk_animation = null
-debug_body_animation = true
+breath_sound = ExtResource("4_2daya")
+heartbeat_sound = ExtResource("3_le1tg")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
 transform = Transform3D(0.9979775, 0.005302255, -0.06334571, -0.006189114, 0.99988544, -0.013812293, 0.06326523, 0.0141764125, 0.997896, -0.0428108, 0.52046645, -0.04041613)
