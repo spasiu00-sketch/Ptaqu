@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://o7jf7y4cjkcx"]
+
+[ext_resource type="PackedScene" uid="uid://cphpcnqfl0ngo" path="res://Models/ptaqu_villain.glb" id="1_f31mc"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_bhunq"]
+
+[node name="Villain" type="Node3D" unique_id=911803282]
+
+[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1963514785]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=1032757949]
+shape = SubResource("SphereShape3D_bhunq")
+
+[node name="ptaqu_villain" parent="." unique_id=1117121935 instance=ExtResource("1_f31mc")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0.26381612, 0, 1.4464974)

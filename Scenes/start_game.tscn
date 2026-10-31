@@ -91,7 +91,7 @@ camera_attributes = SubResource("CameraAttributesPractical_bhunq")
 script = ExtResource("3_bfrei")
 debug_glitch = true
 
-[node name="ColorRect" type="ColorRect" parent="CanvasLayer" unique_id=2141040355]
+[node name="d" type="ColorRect" parent="CanvasLayer" unique_id=2141040355]
 material = SubResource("ShaderMaterial_a0tk4")
 anchors_preset = 15
 anchor_right = 1.0

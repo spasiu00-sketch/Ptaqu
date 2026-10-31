@@ -155,5 +155,15 @@ func _uzyj() -> void:
 
 
 func _wyrzuc() -> void:
-	if _wybrany >= 0:
+	if _wybrany < 0:
+		return
+	var slot = _inv.sloty[_wybrany]
+	if slot == null:
+		return
+	var item: Item = slot.item
+	# usuwamy z ekwipunku tylko wtedy, gdy model faktycznie pojawił się na ziemi
+	if item.wyrzuc(gracz as Node3D):
+		print("Wyrzucono: ", item.nazwa)
 		_inv.usun(_wybrany, 1)
+	else:
+		print("Nie udało się wyrzucić '", item.nazwa, "' (szczegóły w ostrzeżeniach powyżej)")
