@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djvgmhkjdkxl"
-path.s3tc="res://.godot/imported/test_idle_psx_basemesh_male.png-c6276fb7beeda1bd3eafff9079805063.s3tc.ctex"
+uid="uid://bfm0i4rpxp03c"
+path.s3tc="res://.godot/imported/ptaqu_villain_chatgpt procedural.png-ebb94a6af9c1e80cc1346a4452291737.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "13f2048f834b2fbf27cb8016fc1c0254"
+"md5": "439f82cb8935c12b369bd35b8b443071"
 }
 
 [deps]
 
-source_file="res://Models/test_idle_psx_basemesh_male.png"
-dest_files=["res://.godot/imported/test_idle_psx_basemesh_male.png-c6276fb7beeda1bd3eafff9079805063.s3tc.ctex"]
+source_file="res://Models/Villain/ptaqu_villain_chatgpt procedural.png"
+dest_files=["res://.godot/imported/ptaqu_villain_chatgpt procedural.png-ebb94a6af9c1e80cc1346a4452291737.s3tc.ctex"]
 
 [params]
 

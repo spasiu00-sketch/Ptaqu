@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cga8wcvly2d8w"
-path.s3tc="res://.godot/imported/Untitled_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-10afe96dc86c0cf746ac9b39db019d3b.s3tc.ctex"
+uid="uid://cxvxpdr38pign"
+path.s3tc="res://.godot/imported/TEST_przesył_chatgpt procedural.png-0c57ec4cf6fe781f94cef6469fae2020.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "7eca5c3356282621ac6512de5d242098"
+"md5": "439f82cb8935c12b369bd35b8b443071"
 }
 
 [deps]
 
-source_file="res://Models/Untitled_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png"
-dest_files=["res://.godot/imported/Untitled_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-10afe96dc86c0cf746ac9b39db019d3b.s3tc.ctex"]
+source_file="res://Models/Hero/TEST_przesył_chatgpt procedural.png"
+dest_files=["res://.godot/imported/TEST_przesył_chatgpt procedural.png-0c57ec4cf6fe781f94cef6469fae2020.s3tc.ctex"]
 
 [params]
 

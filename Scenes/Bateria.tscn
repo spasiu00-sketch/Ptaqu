@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://brw4nb4620u43"]
 
-[ext_resource type="PackedScene" uid="uid://davcdpiai8ifb" path="res://Models/Bateria.glb" id="1_e513j"]
+[ext_resource type="PackedScene" uid="uid://davcdpiai8ifb" path="res://Models/Battery/Bateria.glb" id="1_e513j"]
 [ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/przedmiot.gd" id="1_n4fnb"]
 [ext_resource type="Resource" uid="uid://d1jcry5yjguiv" path="res://Items/Bateria.tres" id="2_oxrd0"]
 

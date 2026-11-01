@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://1p5e762pk04w"
-path.s3tc="res://.godot/imported/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-a6340f213aba5e102bf71c697e8851e4.s3tc.ctex"
+uid="uid://cnaw1k6aom0o7"
+path.s3tc="res://.godot/imported/ptaqu_villain_pigeon.png-baad1ba14b241b7c0a607b913d5406f3.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "7eca5c3356282621ac6512de5d242098"
+"md5": "41ed4f179bb837bcd29f3381f98f5f99"
 }
 
 [deps]
 
-source_file="res://Models/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png"
-dest_files=["res://.godot/imported/Cylinder_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-a6340f213aba5e102bf71c697e8851e4.s3tc.ctex"]
+source_file="res://Models/Villain/ptaqu_villain_pigeon.png"
+dest_files=["res://.godot/imported/ptaqu_villain_pigeon.png-baad1ba14b241b7c0a607b913d5406f3.s3tc.ctex"]
 
 [params]
 

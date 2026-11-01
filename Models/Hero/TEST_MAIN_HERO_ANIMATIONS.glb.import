@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://fojwttpeyben"
-path="res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS.glb-f6265f2ee398a7fa8a7fc182d23e36f4.scn"
+path="res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS.glb-32e700f8320aae1626dcf0996a6ee28b.scn"
 
 [deps]
 
-source_file="res://Models/TEST_MAIN_HERO_ANIMATIONS.glb"
-dest_files=["res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS.glb-f6265f2ee398a7fa8a7fc182d23e36f4.scn"]
+source_file="res://Models/Hero/TEST_MAIN_HERO_ANIMATIONS.glb"
+dest_files=["res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS.glb-32e700f8320aae1626dcf0996a6ee28b.scn"]
 
 [params]
 
@@ -43,7 +43,7 @@ _subresources={
 "animations": {
 "human|Default": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/human_Default.res",
+"save_to_file/fallback_path": "res://Animations/Hero_tpose.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://08iq5psdy6r8",
 "settings/loop_mode": 0,
@@ -2099,7 +2099,7 @@ _subresources={
 },
 "mixamo_com": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/mixamo_com.res",
+"save_to_file/fallback_path": "res://Animations/Hero_crouch_walk.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://co3x1v1lxt1k0",
 "settings/loop_mode": 0,
@@ -4155,7 +4155,7 @@ _subresources={
 },
 "mixamo_com_001": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/mixamo_com_001.res",
+"save_to_file/fallback_path": "res://Animations/Hero_crouch_to_stand.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://u6qwu0ku57om",
 "settings/loop_mode": 0,
@@ -6211,7 +6211,7 @@ _subresources={
 },
 "mixamo_com_002": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/mixamo_com_002.res",
+"save_to_file/fallback_path": "res://Animations/Hero_idle_crouch.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://devxef7jt2yv",
 "settings/loop_mode": 0,
@@ -8267,7 +8267,7 @@ _subresources={
 },
 "mixamo_com_004": {
 "save_to_file/enabled": true,
-"save_to_file/fallback_path": "res://Animations/mixamo_com_004.res",
+"save_to_file/fallback_path": "res://Animations/Hero_walking.res",
 "save_to_file/keep_custom_tracks": "",
 "save_to_file/path": "uid://bwc5ty7qp16o5",
 "settings/loop_mode": 0,

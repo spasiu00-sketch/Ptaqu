@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8igwbo4x0i1p"
-path.s3tc="res://.godot/imported/Untitled_test animacji_Bateria Chatgpt.png-7d6a28837ad2c29cd77a5717c89287d3.s3tc.ctex"
+uid="uid://l1ptb3xck0pa"
+path.s3tc="res://.godot/imported/Untitled_test animacji_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-3afea6d09f708489b079dc61e48e6c29.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "c56c29b50f855d1c1963a7bacde5f65a"
+"md5": "7eca5c3356282621ac6512de5d242098"
 }
 
 [deps]
 
-source_file="res://Models/Untitled_test animacji_Bateria Chatgpt.png"
-dest_files=["res://.godot/imported/Untitled_test animacji_Bateria Chatgpt.png-7d6a28837ad2c29cd77a5717c89287d3.s3tc.ctex"]
+source_file="res://Models/Latarka/Untitled_test animacji_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png"
+dest_files=["res://.godot/imported/Untitled_test animacji_3787d0a1-b863-45a6-8d82-6a80fc6a1b47.png-3afea6d09f708489b079dc61e48e6c29.s3tc.ctex"]
 
 [params]
 

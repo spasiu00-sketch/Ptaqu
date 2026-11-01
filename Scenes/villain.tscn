@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://o7jf7y4cjkcx"]
 
-[ext_resource type="PackedScene" uid="uid://cphpcnqfl0ngo" path="res://Models/ptaqu_villain.glb" id="1_f31mc"]
+[ext_resource type="PackedScene" uid="uid://cphpcnqfl0ngo" path="res://Models/Villain/ptaqu_villain.glb" id="1_f31mc"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_bhunq"]
 

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://davcdpiai8ifb"
-path="res://.godot/imported/Bateria.glb-65dd0c273e863e646bd0f1af08eee829.scn"
+uid="uid://cphpcnqfl0ngo"
+path="res://.godot/imported/ptaqu_villain.glb-bbc7c8b23c813838f65c6ffa2c952c59.scn"
 
 [deps]
 
-source_file="res://Models/Bateria.glb"
-dest_files=["res://.godot/imported/Bateria.glb-65dd0c273e863e646bd0f1af08eee829.scn"]
+source_file="res://Models/Villain/ptaqu_villain.glb"
+dest_files=["res://.godot/imported/ptaqu_villain.glb-bbc7c8b23c813838f65c6ffa2c952c59.scn"]
 
 [params]
 

@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cnaw1k6aom0o7"
-path.s3tc="res://.godot/imported/ptaqu_villain_pigeon.png-b1579d1f9b40b38705d3dfcbb8fa1a9f.s3tc.ctex"
+uid="uid://c0eycq47mgdsl"
+path.s3tc="res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS_chatgpt procedural.png-6363e61480e74a5a42a2f1c0ede84635.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "41ed4f179bb837bcd29f3381f98f5f99"
+"md5": "439f82cb8935c12b369bd35b8b443071"
 }
 
 [deps]
 
-source_file="res://Models/ptaqu_villain_pigeon.png"
-dest_files=["res://.godot/imported/ptaqu_villain_pigeon.png-b1579d1f9b40b38705d3dfcbb8fa1a9f.s3tc.ctex"]
+source_file="res://Models/Hero/TEST_MAIN_HERO_ANIMATIONS_chatgpt procedural.png"
+dest_files=["res://.godot/imported/TEST_MAIN_HERO_ANIMATIONS_chatgpt procedural.png-6363e61480e74a5a42a2f1c0ede84635.s3tc.ctex"]
 
 [params]
 
