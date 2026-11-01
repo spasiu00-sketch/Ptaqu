@@ -1,11 +1,18 @@
 class_name GlitchKamery
 extends CanvasLayer
-# Nakładka z glitchem na obraz. Co jakiś czas (losowo) na chwilę zakłóca ekran.
+# Nakładka z glitchem na obraz. Bardzo rzadko (losowo) na chwilę zakłóca ekran.
+# Ma straszyć, więc przerwy są długie i nieregularne, żeby gracz się nie przyzwyczaił.
 # Gracz tworzy ją sam. Ręcznie: GlitchKamery.new() albo wywołaj trigger() np. z jumpscare.
 
 @export var wlaczony: bool = true
-@export var min_przerwa: float = 6.0
-@export var max_przerwa: float = 20.0
+
+@export_group("Częstotliwość")
+@export var pierwsza_min: float = 60.0     # najwcześniej tyle sekund po starcie sceny pojawi się pierwszy glitch
+@export var pierwsza_max: float = 180.0    # najpóźniej tyle (pierwszy glitch)
+@export var min_przerwa: float = 120.0     # minimalny czas między kolejnymi glitchami (s)
+@export var max_przerwa: float = 360.0     # maksymalny czas między kolejnymi glitchami (s)
+
+@export_group("Wygląd")
 @export var min_czas: float = 0.1
 @export var max_czas: float = 0.5
 @export_range(0.0, 1.0) var max_sila: float = 1.0
@@ -14,7 +21,6 @@ extends CanvasLayer
 @export var debug_glitch: bool = false
 
 var _rect: ColorRect
-var _kopia: BackBufferCopy
 var _mat: ShaderMaterial
 var _sfx: AudioStreamPlayer
 var _do_nastepnego: float = 0.0
@@ -23,7 +29,7 @@ var _czas_trwania: float = 0.0
 
 
 func _ready() -> void:
-	layer = 1   # pod HUD (2) i jumpscare (100+); w drzewie po nakładce zdrowia, więc rysuje się po niej
+	layer = 1   # pod HUD (2) i jumpscare (100+)
 
 	var shader := load("res://Shader/glitch.gdshader") as Shader
 	if shader == null:
@@ -34,13 +40,6 @@ func _ready() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = shader
 	_mat.set_shader_parameter("strength", 0.0)
-
-	# Świeża kopia ekranu razem z efektem zdrowia / zmęczenia (Godot kopiuje ekran tylko raz).
-	# Włączona tylko na czas glitcha.
-	_kopia = BackBufferCopy.new()
-	_kopia.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
-	_kopia.visible = false
-	add_child(_kopia)
 
 	_rect = ColorRect.new()
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -53,11 +52,16 @@ func _ready() -> void:
 	_sfx.volume_db = glosnosc_db
 	add_child(_sfx)
 
-	_losuj_przerwe()
+	# pierwszy glitch dopiero po dłuższej chwili gry
+	_do_nastepnego = randf_range(pierwsza_min, maxf(pierwsza_max, pierwsza_min))
+	if debug_glitch:
+		print("glitch: pierwszy za %.0f s" % _do_nastepnego)
 
 
 func _losuj_przerwe() -> void:
 	_do_nastepnego = randf_range(min_przerwa, maxf(max_przerwa, min_przerwa))
+	if debug_glitch:
+		print("glitch: następny za %.0f s" % _do_nastepnego)
 
 
 # Wywołaj ręcznie, żeby wymusić glitch (czas <= 0 = losowy)
@@ -68,7 +72,6 @@ func trigger(czas: float = -1.0, sila: float = -1.0) -> void:
 	_pozostalo = _czas_trwania
 	_mat.set_shader_parameter("strength", sila if sila >= 0.0 else max_sila)
 	_rect.visible = true
-	_kopia.visible = true
 	if dzwiek != null:
 		_sfx.stream = dzwiek
 		_sfx.play()
@@ -85,7 +88,6 @@ func _process(delta: float) -> void:
 		if _pozostalo <= 0.0:
 			_mat.set_shader_parameter("strength", 0.0)
 			_rect.visible = false
-			_kopia.visible = false
 			_losuj_przerwe()
 			return
 		# siła drga w trakcie glitcha

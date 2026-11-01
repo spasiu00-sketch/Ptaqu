@@ -1,12 +1,18 @@
 extends Control
 
-@export_file("*.tscn") var game_scene_path: String = "res://Scenes/start_game.tscn"   
+@export_file("*.tscn") var game_scene_path: String = "res://Scenes/start_game.tscn"
 @export var game_title: String = "PTAQU"
 @export var subtitle: String = "NIE JESTEŚ SAM"
 @export var move_sound: AudioStream
 @export var select_sound: AudioStream
 @export var dust_count: int = 70
 @export var fog_count: int = 10
+
+@export_group("Muzyka")
+@export var muzyka: AudioStream                                          # muzyka w tle menu (wybierz plik w Inspektorze)
+@export_range(-40.0, 6.0, 0.5) var muzyka_glosnosc_db: float = -6.0
+@export var muzyka_fade_in: float = 3.0                                  # płynne wejście muzyki (s)
+@export_group("")
 # wpisz swoją ścieżkę
 const MAIN_ITEMS: Array[String] = ["NOWA GRA", "OPCJE", "WYJDŹ"]
 const OPTIONS_COUNT := 3
@@ -18,6 +24,12 @@ const COL_TITLE := Color(0.92, 0.89, 0.82)
 const COL_BLOOD := Color(0.62, 0.07, 0.06)
 const COL_SUB := Color(0.80, 0.16, 0.13)
 const COL_FOOTER := Color(0.88, 0.85, 0.78)
+
+# kolory szkoły
+const SIL := Color(0.04, 0.035, 0.06)
+const WIN_DARK := Color(0.11, 0.11, 0.16)
+const WIN_LIT := Color(0.92, 0.72, 0.38)
+const FENCE := Color(0.05, 0.045, 0.065)
 
 # szkoła w tle: SCHOOL_X 0.5 = środek, 0.78 = przesunięta w prawo (nie koliduje z menu)
 const SCHOOL_X := 0.5
@@ -90,16 +102,28 @@ var _menu_box: VBoxContainer
 var _title: Label
 var _font: FontVariation
 var _sfx: AudioStreamPlayer
+var _music: AudioStreamPlayer
+var _music_tween: Tween
 var _dust: Array = []
 var _fog: Array = []
 var _lit: Array = []
-var _win_i: int = 0
 var _time: float = 0.0
 var _volume: int = 8
 var _starting: bool = false
 var _lamp_dip: float = 0.0
 var _glitch_t: float = 0.0
-var _title_normal: bool = true   # true = tytuł ma domyślny cień (nie ruszamy motywu co klatkę)
+
+# wypiekane tło: rysowane raz do SubViewport (przy starcie i zmianie rozmiaru okna)
+var _vp_back: SubViewport             # niebo + księżyc
+var _vp_front: SubViewport            # szkoła, ziemia, płot (przezroczyste tło)
+var _bake_layers: Array[Control] = []
+var _bake_pending: bool = false
+var _windows: Array[Dictionary] = []       # wszystkie okna: {"w": Rect2, "cw": float, "i": int}
+var _lit_windows: Array[Dictionary] = []   # tylko okna, które się świecą (animowane na żywo)
+
+# ekran ładowania
+var _loading_layer: CanvasLayer
+var _loading_label: Label
 
 
 func _ready() -> void:
@@ -112,12 +136,17 @@ func _ready() -> void:
 
 	_sfx = AudioStreamPlayer.new()
 	add_child(_sfx)
+	_start_music()
 
 	_make_font()
 	_build_ui()
 	_build_post_effect()   # musi być ostatnim dzieckiem
 	_build_atmosphere()
+	_build_bake_layers()
 	_rebuild_menu()
+
+	resized.connect(_schedule_bake)
+	_schedule_bake()
 
 	modulate.a = 0.0
 	create_tween().tween_property(self, "modulate:a", 1.0, 2.0)
@@ -244,12 +273,202 @@ func _build_atmosphere() -> void:
 		_lit.append(rng.randf() < 0.10)
 
 
+# ---------- Wypiekanie tła ----------
+
+func _build_bake_layers() -> void:
+	_vp_back = _make_bake_viewport(_draw_back, false)
+	_vp_front = _make_bake_viewport(_draw_front, true)
+
+
+func _make_bake_viewport(draw_fn: Callable, transparent: bool) -> SubViewport:
+	var vp := SubViewport.new()
+	vp.transparent_bg = transparent
+	vp.disable_3d = true
+	vp.size = Vector2i(2, 2)
+	vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(vp)
+
+	var layer := Control.new()
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vp.add_child(layer)
+	layer.draw.connect(draw_fn.bind(layer))
+	_bake_layers.append(layer)
+	return vp
+
+
+func _schedule_bake() -> void:
+	if _bake_pending:
+		return
+	_bake_pending = true
+	_bake.call_deferred()
+
+
+func _bake() -> void:
+	_bake_pending = false
+	var s := size
+	if s.x < 2.0 or s.y < 2.0:
+		return
+
+	_build_windows(s)
+
+	var px := Vector2i(roundi(s.x), roundi(s.y))
+	for vp: SubViewport in [_vp_back, _vp_front]:
+		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		vp.size = px
+	for layer in _bake_layers:
+		layer.queue_redraw()
+
+	# czekamy klatkę, aż warstwy się narysują, dopiero wtedy renderujemy do tekstury (raz)
+	await get_tree().process_frame
+	for vp: SubViewport in [_vp_back, _vp_front]:
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+# Niebo + księżyc (statyczne)
+func _draw_back(c: CanvasItem) -> void:
+	var s := size
+
+	var top := Color(0.09, 0.10, 0.15)
+	var bottom := Color(0.25, 0.09, 0.09)
+	c.draw_polygon(
+		PackedVector2Array([Vector2.ZERO, Vector2(s.x, 0.0), s, Vector2(0.0, s.y)]),
+		PackedColorArray([top, top, bottom, bottom]))
+
+	var moon := Vector2(s.x * 0.2, s.y * 0.2)
+	for k in 6:
+		c.draw_circle(moon, s.y * (0.10 - k * 0.012), Color(0.7, 0.75, 0.9, 0.025))
+	c.draw_circle(moon, s.y * 0.04, Color(0.82, 0.85, 0.92, 0.9))
+	c.draw_circle(moon + Vector2(s.y * 0.012, -s.y * 0.006), s.y * 0.008, Color(0.65, 0.68, 0.78, 0.7))
+
+
+# Szkoła, ziemia, płot (statyczne; okna ciemne, świecące rysowane na żywo)
+func _draw_front(c: CanvasItem) -> void:
+	var s := size
+	var g := _school_geometry(s)
+	var u: float = g["u"]
+	var cx: float = g["cx"]
+	var ground: float = g["ground"]
+	var center: Rect2 = g["center"]
+	var left: Rect2 = g["left"]
+	var right: Rect2 = g["right"]
+
+	# bryły
+	c.draw_rect(left, SIL)
+	c.draw_rect(right, SIL)
+	c.draw_rect(center, SIL)
+
+	# dachy (niskie, trójkątne)
+	for r: Rect2 in [left, right]:
+		c.draw_colored_polygon(PackedVector2Array([
+			Vector2(r.position.x - 8.0, r.position.y),
+			Vector2(r.position.x + r.size.x * 0.5, r.position.y - u * 0.03),
+			Vector2(r.end.x + 8.0, r.position.y)]), SIL)
+	c.draw_colored_polygon(PackedVector2Array([
+		Vector2(center.position.x - 8.0, center.position.y),
+		Vector2(center.position.x + center.size.x * 0.5, center.position.y - u * 0.04),
+		Vector2(center.end.x + 8.0, center.position.y)]), SIL)
+
+	# wieża zegarowa
+	var tower := Rect2(cx - u * 0.05, center.position.y - u * 0.13, u * 0.10, u * 0.14)
+	c.draw_rect(tower, SIL)
+	c.draw_colored_polygon(PackedVector2Array([
+		Vector2(tower.position.x - u * 0.012, tower.position.y),
+		Vector2(cx, tower.position.y - u * 0.07),
+		Vector2(tower.end.x + u * 0.012, tower.position.y)]), SIL)
+
+	# zegar (stoi na tej samej godzinie, niepokojące)
+	var clock := Vector2(cx, tower.position.y + tower.size.y * 0.42)
+	c.draw_circle(clock, u * 0.026, Color(0.62, 0.58, 0.50, 0.9))
+	c.draw_line(clock, clock + Vector2(0.0, -u * 0.019), Color(0.05, 0.04, 0.05), 2.0)
+	c.draw_line(clock, clock + Vector2(u * 0.012, u * 0.006), Color(0.05, 0.04, 0.05), 2.0)
+
+	# okna (wszystkie ciemne; świecące dorysowuje _draw na żywo)
+	for win in _windows:
+		_draw_window(c, win["w"], WIN_DARK)
+
+	# drzwi wejściowe
+	c.draw_rect(Rect2(cx - u * 0.02, ground - u * 0.065, u * 0.04, u * 0.065), Color(0.015, 0.01, 0.02))
+
+	# teren
+	c.draw_rect(Rect2(0.0, ground, s.x, s.y - ground), Color(0.035, 0.03, 0.045))
+
+	# płot
+	var fx0 := cx - u * 0.80
+	var fx1 := cx + u * 0.80
+	c.draw_rect(Rect2(fx0, ground - u * 0.035, fx1 - fx0, 3.0), FENCE)
+	var x := fx0
+	while x < fx1:
+		c.draw_rect(Rect2(x, ground - u * 0.05, 3.0, u * 0.05), FENCE)
+		x += u * 0.014
+
+
+func _school_geometry(s: Vector2) -> Dictionary:
+	var u := s.y * SCHOOL_SCALE
+	var cx := s.x * SCHOOL_X
+	var ground := s.y * 0.95
+
+	var c_w := u * 0.55   # część środkowa
+	var c_h := u * 0.19
+	var w_w := u * 0.40   # skrzydła
+	var w_h := u * 0.13
+
+	var center := Rect2(cx - c_w * 0.5, ground - c_h, c_w, c_h)
+	var left := Rect2(center.position.x - w_w, ground - w_h, w_w, w_h)
+	var right := Rect2(center.end.x, ground - w_h, w_w, w_h)
+	return {"u": u, "cx": cx, "ground": ground, "center": center, "left": left, "right": right}
+
+
+# Liczy położenie wszystkich okien (raz na bake) i wydziela te, które się świecą
+func _build_windows(s: Vector2) -> void:
+	_windows.clear()
+	_lit_windows.clear()
+
+	var g := _school_geometry(s)
+	var u: float = g["u"]
+	var center: Rect2 = g["center"]
+	var left: Rect2 = g["left"]
+	var right: Rect2 = g["right"]
+
+	var regions: Array = [
+		[Rect2(left.position.x + u * 0.01, left.position.y + u * 0.015,
+			left.size.x - u * 0.02, left.size.y - u * 0.03), 2, 5],
+		[Rect2(right.position.x + u * 0.01, right.position.y + u * 0.015,
+			right.size.x - u * 0.02, right.size.y - u * 0.03), 2, 5],
+		[Rect2(center.position.x + u * 0.01, center.position.y + u * 0.015,
+			center.size.x - u * 0.02, center.size.y * 0.62), 2, 7],
+	]
+
+	var idx := 0
+	for reg in regions:
+		var r: Rect2 = reg[0]
+		var rows: int = reg[1]
+		var cols: int = reg[2]
+		var cw := r.size.x / cols
+		var ch := r.size.y / rows
+		for y in rows:
+			for x in cols:
+				var w := Rect2(r.position.x + x * cw + cw * 0.2, r.position.y + y * ch + ch * 0.18,
+					cw * 0.6, ch * 0.64)
+				var entry := {"w": w, "cw": cw, "i": idx}
+				_windows.append(entry)
+				if _lit[idx % _lit.size()]:
+					_lit_windows.append(entry)
+				idx += 1
+
+
+func _draw_window(c: CanvasItem, w: Rect2, col: Color) -> void:
+	c.draw_rect(w, col)
+	# ramy okien
+	c.draw_line(Vector2(w.position.x + w.size.x * 0.5, w.position.y),
+		Vector2(w.position.x + w.size.x * 0.5, w.end.y), SIL, 1.5)
+	c.draw_line(Vector2(w.position.x, w.position.y + w.size.y * 0.5),
+		Vector2(w.end.x, w.position.y + w.size.y * 0.5), SIL, 1.5)
+
+
 # ---------- Menu ----------
 
 func _rebuild_menu() -> void:
-	# remove_child, żeby stare etykiety nie zostały w układzie do końca klatki
 	for c in _menu_box.get_children():
-		_menu_box.remove_child(c)
 		c.queue_free()
 	_labels.clear()
 
@@ -345,19 +564,117 @@ func _is_fullscreen() -> bool:
 	return m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
 
 
+# ---------- Start gry: ładowanie sceny w tle ----------
+
 func _start_game() -> void:
 	if game_scene_path == "" or not ResourceLoader.exists(game_scene_path):
 		push_error("Menu Ptaqu: nie znaleziono sceny gry: '%s'" % game_scene_path)
 		return
+
 	_starting = true
+
+	# ładowanie rusza od razu, w tle, równolegle z wygaszaniem menu
+	var err := ResourceLoader.load_threaded_request(game_scene_path)
+	if err != OK:
+		push_error("Menu Ptaqu: load_threaded_request zwróciło błąd %d (%s)" % [err, game_scene_path])
+		_starting = false
+		return
+
+	_fade_music(-60.0, 1.2)   # muzyka cichnie razem z wygaszaniem menu
 	var tw := create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 1.2)
 	await tw.finished
-	var err := get_tree().change_scene_to_file(game_scene_path)
-	if err != OK:
-		push_error("Menu Ptaqu: change_scene_to_file zwróciło błąd %d (%s)" % [err, game_scene_path])
+
+	# czekamy na koniec ładowania; ekran ładowania pokazujemy tylko, jeśli to potrwa
+	var progress: Array = []
+	while true:
+		var status := ResourceLoader.load_threaded_get_status(game_scene_path, progress)
+		if status == ResourceLoader.THREAD_LOAD_LOADED:
+			break
+		if status != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			push_error("Menu Ptaqu: ładowanie sceny nie powiodło się (status %d, %s)" % [status, game_scene_path])
+			_hide_loading()
+			_starting = false
+			modulate.a = 1.0
+			_fade_music(muzyka_glosnosc_db, 0.5)
+			return
+		if _loading_layer == null:
+			_show_loading()
+		var percent := int(progress[0] * 100.0) if not progress.is_empty() else 0
+		_loading_label.text = "ŁADOWANIE  %d%%" % percent
+		await get_tree().process_frame
+
+	var packed := ResourceLoader.load_threaded_get(game_scene_path) as PackedScene
+	if packed == null:
+		push_error("Menu Ptaqu: wczytany zasób nie jest sceną: '%s'" % game_scene_path)
+		_hide_loading()
 		_starting = false
 		modulate.a = 1.0
+		_fade_music(muzyka_glosnosc_db, 0.5)
+		return
+
+	get_tree().change_scene_to_packed(packed)
+
+
+func _show_loading() -> void:
+	_loading_layer = CanvasLayer.new()
+	_loading_layer.layer = 100
+	add_child(_loading_layer)
+
+	var bg := ColorRect.new()
+	bg.color = Color.BLACK
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loading_layer.add_child(bg)
+
+	_loading_label = _make_label("ŁADOWANIE  0%", 28, COL_NORMAL)
+	_loading_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_loading_layer.add_child(_loading_label)
+
+
+func _hide_loading() -> void:
+	if _loading_layer != null:
+		_loading_layer.queue_free()
+	_loading_layer = null
+	_loading_label = null
+
+
+# ---------- Muzyka w tle ----------
+
+func _start_music() -> void:
+	if muzyka == null:
+		return
+	_music = AudioStreamPlayer.new()
+	_music.name = "MuzykaMenu"
+	_music.stream = muzyka
+	_music.volume_db = -60.0
+	add_child(_music)
+
+	# OGG / MP3 zapętlamy w stremie, resztę (np. WAV) odpalamy ponownie po końcu
+	if not _loop_stream(muzyka):
+		_music.finished.connect(_music.play)
+	_music.play()
+	_fade_music(muzyka_glosnosc_db, maxf(muzyka_fade_in, 0.01))
+
+
+func _loop_stream(stream: AudioStream) -> bool:
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+		return true
+	if stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
+		return true
+	return false
+
+
+func _fade_music(target_db: float, czas: float) -> void:
+	if _music == null:
+		return
+	if _music_tween != null and _music_tween.is_valid():
+		_music_tween.kill()
+	_music_tween = create_tween()
+	_music_tween.tween_property(_music, "volume_db", target_db, czas)
 
 
 func _play(stream: AudioStream) -> void:
@@ -423,9 +740,7 @@ func _process(delta: float) -> void:
 	_lamp_dip = maxf(_lamp_dip - delta * 2.5, 0.0)
 	var lamp := _lamp_level()
 
-	# tytuł: migotanie + rzadki glitch.
-	# Nadpisania motywu (add_theme_constant_override) powiadamiają kontrolkę i przeliczają układ,
-	# więc w trakcie glitcha ustawiamy je co klatkę, a po jego końcu raz wracamy do domyślnych.
+	# tytuł: migotanie + rzadki glitch
 	if _glitch_t <= 0.0 and randf() < 0.004:
 		_glitch_t = randf_range(0.06, 0.22)
 	if _glitch_t > 0.0:
@@ -434,13 +749,10 @@ func _process(delta: float) -> void:
 		_title.modulate = Color(1.0, k, k)
 		_title.add_theme_constant_override("shadow_offset_x", randi_range(-10, 10))
 		_title.add_theme_constant_override("shadow_offset_y", randi_range(-4, 6))
-		_title_normal = false
 	else:
 		_title.modulate = Color(lamp, lamp, lamp)
-		if not _title_normal:
-			_title.add_theme_constant_override("shadow_offset_x", 5)
-			_title.add_theme_constant_override("shadow_offset_y", 5)
-			_title_normal = true
+		_title.add_theme_constant_override("shadow_offset_x", 5)
+		_title.add_theme_constant_override("shadow_offset_y", 5)
 
 	# wybrana pozycja: żywe pulsowanie (z zapasem jasności, żeby nigdy nie znikała)
 	for i in _labels.size():
@@ -456,22 +768,13 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var s := size
 	var lamp := _lamp_level()
+	var full := Rect2(Vector2.ZERO, s)
 
-	# tło: nocne niebo przechodzące w bordową ziemię (jaśniejsze niż wcześniej)
-	var top := Color(0.09, 0.10, 0.15)
-	var bottom := Color(0.25, 0.09, 0.09)
-	draw_polygon(
-		PackedVector2Array([Vector2.ZERO, Vector2(s.x, 0.0), s, Vector2(0.0, s.y)]),
-		PackedColorArray([top, top, bottom, bottom]))
+	# tło statyczne: niebo + księżyc (gotowa tekstura)
+	if _vp_back != null:
+		draw_texture_rect(_vp_back.get_texture(), full, false)
 
-	# księżyc z poświatą
-	var moon := Vector2(s.x * 0.2, s.y * 0.2)
-	for k in 6:
-		draw_circle(moon, s.y * (0.10 - k * 0.012), Color(0.7, 0.75, 0.9, 0.025))
-	draw_circle(moon, s.y * 0.04, Color(0.82, 0.85, 0.92, 0.9))
-	draw_circle(moon + Vector2(s.y * 0.012, -s.y * 0.006), s.y * 0.008, Color(0.65, 0.68, 0.78, 0.7))
-
-	# stożek światła z żarówki wiszącej u góry (delikatniejszy)
+	# stożek światła z żarówki wiszącej u góry (animowany lampą)
 	var cx := s.x * 0.5
 	var a0 := 0.08 * lamp
 	draw_polygon(
@@ -487,7 +790,21 @@ func _draw() -> void:
 	for k in 7:
 		draw_circle(glow, s.y * (0.42 - k * 0.05), Color(0.55, 0.08, 0.06, 0.03 * lamp))
 
-	_draw_school(s)
+	# szkoła, ziemia, płot (gotowa tekstura)
+	if _vp_front != null:
+		draw_texture_rect(_vp_front.get_texture(), full, false)
+
+	# tylko świecące okna rysowane na żywo
+	for win in _lit_windows:
+		var w: Rect2 = win["w"]
+		var cw: float = win["cw"]
+		var i: int = win["i"]
+		var a := 0.8 + 0.2 * sin(_time * 6.0 + i * 2.3)
+		if fmod(_time + i * 1.7, 11.0) < 0.2:
+			a = 0.0   # okno co jakiś czas gaśnie
+		if a > 0.3:
+			draw_rect(w.grow(cw * 0.12), Color(0.9, 0.6, 0.25, 0.10 * a))
+		_draw_window(self, w, WIN_DARK.lerp(WIN_LIT, a))
 
 	# mgła: warstwowe miękkie koła (na wierzchu szkoły)
 	for f in _fog:
@@ -502,101 +819,3 @@ func _draw() -> void:
 		var a := (0.08 + 0.20 * (0.5 + 0.5 * sin(_time * 1.1 + p["ph"]))) * lamp
 		var sz: float = p["s"]
 		draw_circle(pos, sz, Color(0.80, 0.74, 0.68, a))
-
-
-# ---------- Szkoła w tle ----------
-
-func _draw_school(s: Vector2) -> void:
-	_win_i = 0
-	var u := s.y * SCHOOL_SCALE
-	var cx := s.x * SCHOOL_X
-	var ground := s.y * 0.95
-	var sil := Color(0.04, 0.035, 0.06)
-
-	var c_w := u * 0.55   # część środkowa
-	var c_h := u * 0.19
-	var w_w := u * 0.40   # skrzydła
-	var w_h := u * 0.13
-
-	var center := Rect2(cx - c_w * 0.5, ground - c_h, c_w, c_h)
-	var left := Rect2(center.position.x - w_w, ground - w_h, w_w, w_h)
-	var right := Rect2(center.end.x, ground - w_h, w_w, w_h)
-
-	# bryły
-	draw_rect(left, sil)
-	draw_rect(right, sil)
-	draw_rect(center, sil)
-
-	# dachy (niskie, trójkątne)
-	for r in [left, right]:
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(r.position.x - 8.0, r.position.y),
-			Vector2(r.position.x + r.size.x * 0.5, r.position.y - u * 0.03),
-			Vector2(r.end.x + 8.0, r.position.y)]), sil)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(center.position.x - 8.0, center.position.y),
-		Vector2(center.position.x + center.size.x * 0.5, center.position.y - u * 0.04),
-		Vector2(center.end.x + 8.0, center.position.y)]), sil)
-
-	# wieża zegarowa
-	var tower := Rect2(cx - u * 0.05, center.position.y - u * 0.13, u * 0.10, u * 0.14)
-	draw_rect(tower, sil)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(tower.position.x - u * 0.012, tower.position.y),
-		Vector2(cx, tower.position.y - u * 0.07),
-		Vector2(tower.end.x + u * 0.012, tower.position.y)]), sil)
-
-	# zegar (stoi na tej samej godzinie, niepokojące)
-	var clock := Vector2(cx, tower.position.y + tower.size.y * 0.42)
-	draw_circle(clock, u * 0.026, Color(0.62, 0.58, 0.50, 0.9))
-	draw_line(clock, clock + Vector2(0.0, -u * 0.019), Color(0.05, 0.04, 0.05), 2.0)
-	draw_line(clock, clock + Vector2(u * 0.012, u * 0.006), Color(0.05, 0.04, 0.05), 2.0)
-
-	# okna
-	_draw_windows(Rect2(left.position.x + u * 0.01, left.position.y + u * 0.015,
-		left.size.x - u * 0.02, left.size.y - u * 0.03), 2, 5, sil)
-	_draw_windows(Rect2(right.position.x + u * 0.01, right.position.y + u * 0.015,
-		right.size.x - u * 0.02, right.size.y - u * 0.03), 2, 5, sil)
-	_draw_windows(Rect2(center.position.x + u * 0.01, center.position.y + u * 0.015,
-		center.size.x - u * 0.02, center.size.y * 0.62), 2, 7, sil)
-
-	# drzwi wejściowe
-	draw_rect(Rect2(cx - u * 0.02, ground - u * 0.065, u * 0.04, u * 0.065), Color(0.015, 0.01, 0.02))
-
-	# teren
-	draw_rect(Rect2(0.0, ground, s.x, s.y - ground), Color(0.035, 0.03, 0.045))
-
-	# płot
-	var fence := Color(0.05, 0.045, 0.065)
-	var fx0 := cx - u * 0.80
-	var fx1 := cx + u * 0.80
-	draw_rect(Rect2(fx0, ground - u * 0.035, fx1 - fx0, 3.0), fence)
-	var x := fx0
-	while x < fx1:
-		draw_rect(Rect2(x, ground - u * 0.05, 3.0, u * 0.05), fence)
-		x += u * 0.014
-
-
-func _draw_windows(r: Rect2, rows: int, cols: int, sil: Color) -> void:
-	var cw := r.size.x / cols
-	var ch := r.size.y / rows
-	for y in rows:
-		for x in cols:
-			var w := Rect2(r.position.x + x * cw + cw * 0.2, r.position.y + y * ch + ch * 0.18,
-				cw * 0.6, ch * 0.64)
-			var col := Color(0.11, 0.11, 0.16)
-			var lit: bool = _lit[_win_i % _lit.size()]
-			if lit:
-				var a := 0.8 + 0.2 * sin(_time * 6.0 + _win_i * 2.3)
-				if fmod(_time + _win_i * 1.7, 11.0) < 0.2:
-					a = 0.0   # okno co jakiś czas gaśnie
-				col = col.lerp(Color(0.92, 0.72, 0.38), a)
-				if a > 0.3:
-					draw_rect(w.grow(cw * 0.12), Color(0.9, 0.6, 0.25, 0.10 * a))
-			draw_rect(w, col)
-			# ramy okien
-			draw_line(Vector2(w.position.x + w.size.x * 0.5, w.position.y),
-				Vector2(w.position.x + w.size.x * 0.5, w.end.y), sil, 1.5)
-			draw_line(Vector2(w.position.x, w.position.y + w.size.y * 0.5),
-				Vector2(w.end.x, w.position.y + w.size.y * 0.5), sil, 1.5)
-			_win_i += 1
