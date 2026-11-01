@@ -26,7 +26,7 @@ albedo_texture = ExtResource("1_u7jam")
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_riqys"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sn0t7"]
-size = Vector3(24.33374, 1, 18.589355)
+size = Vector3(24.33374, 0.9366455, 18.589355)
 
 [sub_resource type="Sky" id="Sky_6f8o3"]
 
@@ -74,7 +74,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_avyfn")
 physics_material_override = SubResource("PhysicsMaterial_riqys")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=839200158]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.8968506, -0.30708122, -1.2412109)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.8968506, -0.33875847, -1.2412109)
 shape = SubResource("BoxShape3D_sn0t7")
 
 [node name="Node3D2" parent="." unique_id=94253958 instance=ExtResource("2_xkwxp")]

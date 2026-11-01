@@ -669,13 +669,12 @@ _data = {
 [node name="Node3D" type="Node3D" unique_id=94253958]
 script = SubResource("GDScript_7iw6i")
 
-[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856 node_paths=PackedStringArray("head_skeleton")]
+[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
 crouch_toggle = true
 breath_sound = ExtResource("4_2daya")
 heartbeat_sound = ExtResource("3_le1tg")
-head_skeleton = NodePath("cienie_gracza/TEST_MAIN_HERO_ANIMATIONS/Armature_001/Skieleton")
-debug_head = true
+jump_launch_ratio = 0.3
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
 transform = Transform3D(0.99797755, 0.0053022546, -0.06334572, -0.006189114, 0.9998855, -0.013812293, 0.06326523, 0.014176414, 0.997896, -0.0428108, 0.52046645, 0.06127333)
