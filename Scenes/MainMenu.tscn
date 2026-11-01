@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://culpdkky4ql1j"]
 
 [ext_resource type="Script" uid="uid://rl8twirpremm" path="res://Skrypts/MainMenu.gd" id="1_i26rj"]
-[ext_resource type="AudioStream" uid="uid://feslbuimdaal" path="res://Sounds/ziobro-echo.mp3" id="2_853f1"]
 
 [node name="Control" type="Control" unique_id=1735361042]
 layout_mode = 3
@@ -11,4 +10,3 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_i26rj")
-select_sound = ExtResource("2_853f1")

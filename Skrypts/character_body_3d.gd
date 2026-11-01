@@ -38,9 +38,11 @@ const HERO_ANIMS := {
 	"crouch_idle": "Hero_idle_crouch",
 	"crouch_walk": "Hero_crouch_walk",
 	"stand_up": "Hero_crouch_to_stand",
+	"jump": "Hero_jump",
 }
 const HERO_ANIMS_LOOPED := ["idle", "walk", "crouch_idle", "crouch_walk"]
 const HERO_LIB := "hero"
+const JUMP_AIR_GRACE := 0.12   # po ilu sekundach w powietrzu (bez skoku, np. zejście z krawędzi) włącza się animacja skoku
 
 # rozmazanie ekranu przy zmęczeniu (shader czyta obraz ekranu i rozmywa go mipmapami)
 const FATIGUE_BLUR_SHADER := """
@@ -101,6 +103,9 @@ const INPUT_KEYS := {
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0   # poniżej tego % życia ekran zaczyna ciemnieć
 @export var restart_on_death: bool = true              # po śmierci wczytaj scenę od nowa
 @export var death_delay: float = 3.0                   # ile sekund po śmierci do restartu
+@export var debug_third_person: bool = true            # F1 = kamera z trzeciej osoby (do testów, wyłącz w wersji końcowej)
+@export var third_person_distance: float = 4.5         # ile metrów za plecami postaci jest kamera po F1
+@export var third_person_height: float = 0.8           # ile metrów wyżej niż normalnie po F1
 @export var debug_health_keys: bool = true             # F3 = -10 życia, F4 = +10 życia (do testów, wyłącz w wersji końcowej)
 
 @export_group("Życie - oddech i kaszel")
@@ -160,11 +165,28 @@ const INPUT_KEYS := {
 @export_group("Animacje postaci")
 @export var anim_player: AnimationPlayer                 # puste = szuka węzła "AnimationPlayer2"
 @export var anim_folder: String = "res://animations/"    # folder z plikami Hero_*.res
-@export var anim_blend: float = 0.2                      # płynność przejść między animacjami (s)
+@export var anim_blend: float = 0.1                      # domyślna płynność przejścia (s), gdy brak wpisu w 'Anim Blends'
+@export var anim_blends: Dictionary = {                  # czas przejścia DO danej animacji (s), 0 = natychmiast
+	"idle": 0.12,
+	"walk": 0.08,
+	"crouch_idle": 0.1,
+	"crouch_walk": 0.08,
+	"stand_up": 0.0,
+	"jump": 0.03,
+}
+@export var jump_anim_speed: float = 1.0                 # tempo animacji skoku
 @export var sprint_anim_speed: float = 1.4               # przyspieszenie animacji chodu przy sprincie
-@export var anim_transition_speed: float = 1.0           # tempo animacji kucanie <-> wstawanie
+@export var anim_transition_speed: float = 8.0           # tempo animacji kucanie <-> wstawanie (8 = ok. 8x szybciej, prawie natychmiast)
 @export var anim_spam_speed: float = 3.0                 # mnożnik tempa, gdy C wciśnięte w trakcie trwającej animacji
 @export var debug_animations: bool = false               # true = wypisuje w Output zmiany animacji
+
+@export_group("Kamera w głowie")
+@export var camera_in_head: bool = true                  # true = Camera3D jest przyczepiona do kości głowy modelu bohatera
+@export var head_skeleton: Skeleton3D                    # puste = szuka Skeleton3D obok AnimationPlayera modelu
+@export var head_bone_name: String = "mixamorig_Head"    # nazwa kości głowy (puste/nie znaleziono = szuka kości z "head" w nazwie)
+@export var head_camera_offset: Vector3 = Vector3(0.0, -0.05, -0.2)  # kamera względem kości głowy, w osiach gracza (Y w górę, -Z do przodu). Ujemne Z = przed twarzą
+@export var debug_head: bool = false                     # true = wypisuje w Output znalezioną kość
+@export var debug_head_tune: bool = true                 # numpad: 8 / 2 = wyżej / niżej, 4 / 6 = w tył / do przodu, 7 / 9 = w lewo / prawo. Wynik w Output (wpisz go w Head Camera Offset)
 
 @export_group("Efekty")
 @export var glitch_wlaczony: bool = true   # losowy glitch obrazu (glitch_kamery.gd)
@@ -179,7 +201,7 @@ const INPUT_KEYS := {
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
-@onready var camera: Camera3D = $Camera3D
+var camera: Camera3D = null   # szukana w _ready() wśród potomków gracza (nazwa nie ma znaczenia)
 
 var footstep_player = null          # AudioStreamPlayer lub AudioStreamPlayer3D
 var breath_player: AudioStreamPlayer = null
@@ -195,6 +217,16 @@ var oczy = null                    # instancja oczy_zjawa.gd
 
 # true = zdarzenie (np. czerwone oczy) przejęło kamerę: blokuje myszkę i ruch gracza
 var kontrola_zablokowana: bool = false
+
+# dodatkowe przesunięcie kamery (lokalnie względem gracza); ustawiane np. przez F1 / cien_gracza.gd
+var camera_extra_offset: Vector3 = Vector3.ZERO:
+	set(value):
+		if camera != null:
+			camera.position += value - camera_extra_offset   # różnica, więc nie psuje kucania ani bobu
+		camera_extra_offset = value
+var _shadow_model: Node = null
+var _head_skel: Skeleton3D = null
+var _head_bone: int = -1
 
 # życie
 var health: float = 100.0
@@ -238,6 +270,8 @@ var _cam_offset: float = 0.0  # aktualne przesunięcie kamery w dół (<= 0)
 var _anim_current: String = ""
 var _transition: String = ""   # "" / "down" (kucanie) / "up" (wstawanie)
 var _was_crouching: bool = false
+var _jumped: bool = false        # true od wybicia do wylądowania
+var _air_time: float = 0.0       # ile sekund gracz jest w powietrzu
 
 # head bob kamery
 var bob_czas := 0.0
@@ -257,6 +291,15 @@ var mouse_input := Vector2.ZERO
 # ---------- Inicjalizacja ----------
 
 func _ready() -> void:
+	var kamery := find_children("*", "Camera3D", true, false)
+	if kamery.is_empty():
+		push_error("character_body_3d.gd: pod graczem (CharacterBody3D) nie ma żadnej Camera3D. Przeciągnij Camera3D w drzewie sceny tak, żeby była dzieckiem CharacterBody3D, na którym wisi ten skrypt (skrypt wisi na: %s)." % get_path())
+		set_process(false)
+		set_physics_process(false)
+		set_process_input(false)
+		return
+	camera = kamery[0] as Camera3D
+
 	set_process(false)   # _process tylko gdy trzeba (latarka w ręku / ruch kamery przy kucaniu)
 	_setup_input_actions()
 	_setup_footstep_player()
@@ -267,6 +310,7 @@ func _ready() -> void:
 	_setup_held_item()
 	_setup_crouch()
 	_setup_animations()
+	_setup_head_camera()
 	_setup_inventory()
 	_setup_health()
 	_setup_glitch()
@@ -282,11 +326,16 @@ func _find_nodes() -> void:
 	else:
 		push_warning("Brak węzła InteractRay (RayCast3D) pod Camera3D")
 
-	# światło szukamy po typie, nazwa węzła nie ma znaczenia
-	for light in find_children("*", "SpotLight3D", true, false):
-		if light is Flashlight:
-			flashlight = light
-			break
+	# latarkę szukamy po skrypcie (Flashlight) w całym drzewie gracza, nazwa i miejsce węzła nie mają znaczenia
+	flashlight = _find_flashlight(self)
+	if flashlight == null:
+		# diagnostyka: co faktycznie jest w scenie
+		var spoty := find_children("*", "SpotLight3D", true, false)
+		if spoty.is_empty():
+			print("[gracz] pod graczem nie ma ŻADNEGO SpotLight3D (sprawdź, czy HeldFlashlight nie został poza CharacterBody3D)")
+		for spot in spoty:
+			var scr = spot.get_script()
+			print("[gracz] SpotLight3D '%s' (%s), skrypt: %s" % [spot.name, get_path_to(spot), scr.resource_path if scr else "BRAK"])
 
 	# węzeł do kołysania: model latarki -> HeldFlashlight -> samo światło
 	held_flashlight = _find_first_node([held_model_name, "HeldFlashlight"])
@@ -297,6 +346,16 @@ func _find_nodes() -> void:
 	held_root = _find_first_node([held_root_name])
 	if held_root == null:
 		held_root = held_flashlight
+
+
+func _find_flashlight(wezel: Node) -> Flashlight:
+	for dziecko in wezel.get_children():
+		if dziecko is Flashlight:
+			return dziecko as Flashlight
+		var found := _find_flashlight(dziecko)
+		if found != null:
+			return found
+	return null
 
 
 func _find_first_node(node_names: Array[String]) -> Node3D:
@@ -353,6 +412,47 @@ func _setup_oczy() -> void:
 	add_child(oczy)
 
 
+# ---------- Kamera w głowie ----------
+
+# Kamera jest "w głowie" bohatera: co klatkę ustawiamy jej pozycję na kość głowy (+ offset oczu).
+# Obrót kamery (myszka) zostaje niezależny od kości. Model jest renderowany przez kamerę tylko jako cień
+# (cien_gracza.gd: SHADOWS_ONLY), więc głowa nie przenika przez obraz; w trybie F1 kamera jest daleko za plecami.
+func _setup_head_camera() -> void:
+	if not camera_in_head:
+		return
+	_head_skel = head_skeleton
+	if _head_skel == null:
+		var root: Node = anim_player.get_parent() if anim_player != null else self
+		var szkielety := root.find_children("*", "Skeleton3D", true, false)
+		if not szkielety.is_empty():
+			_head_skel = szkielety[0] as Skeleton3D
+	if _head_skel == null:
+		push_warning("Kamera w głowie: nie znaleziono Skeleton3D modelu bohatera, przypisz 'Head Skeleton' w Inspektorze gracza")
+		return
+
+	_head_bone = _head_skel.find_bone(head_bone_name)
+	if _head_bone < 0:
+		for i in _head_skel.get_bone_count():
+			var n := _head_skel.get_bone_name(i).to_lower()
+			if n.contains("head") and not n.contains("top") and not n.contains("end"):
+				_head_bone = i
+				break
+	if _head_bone < 0:
+		push_warning("Kamera w głowie: nie znaleziono kości głowy, ustaw 'Head Bone Name' w Inspektorze gracza")
+		return
+
+	if debug_head:
+		print("kamera w głowie: kość '%s' (szkielet %s)" % [_head_skel.get_bone_name(_head_bone), _head_skel.get_path()])
+	process_priority = 100   # po AnimationPlayerze, żeby czytać aktualną pozę
+	set_process(true)
+
+
+func _follow_head() -> void:
+	var rodzic := camera.get_parent() as Node3D
+	var glowa := _head_skel.global_transform * _head_skel.get_bone_global_pose(_head_bone).origin
+	camera.position = rodzic.to_local(glowa) + head_camera_offset + _head_bob_offset + camera_extra_offset
+
+
 # ---------- Animacje postaci ----------
 
 # Wczytuje pliki Hero_*.res z folderu animacji, wkłada je do biblioteki "hero"
@@ -380,6 +480,10 @@ func _setup_animations() -> void:
 	_play_anim("idle")
 
 
+func _blend_for(key: String) -> float:
+	return float(anim_blends.get(key, anim_blend))
+
+
 func _play_anim(key: String) -> void:
 	if key == _anim_current:
 		return
@@ -387,7 +491,7 @@ func _play_anim(key: String) -> void:
 	if not anim_player.has_animation(full):
 		return
 	_anim_current = key
-	anim_player.play(full, anim_blend)
+	anim_player.play(full, _blend_for(key))
 	if debug_animations:
 		print("animacja: ", full)
 
@@ -405,7 +509,7 @@ func _start_transition(down: bool) -> void:
 	_transition = "down" if down else "up"
 	_anim_current = "stand_up"
 	anim_player.speed_scale = 1.0
-	anim_player.play(full, 0.0 if spam else anim_blend, -speed if down else speed)
+	anim_player.play(full, 0.0 if spam else _blend_for("stand_up"), -speed if down else speed)
 	anim_player.seek(pos, true)
 	if debug_animations:
 		print("przejście: ", _transition, " (spam: ", spam, ", tempo: ", speed, ")")
@@ -422,6 +526,20 @@ func _transition_done() -> bool:
 # Wybiera animację na podstawie stanu gracza (wołane co klatkę fizyki)
 func _update_animation() -> void:
 	if anim_player == null:
+		return
+
+	# skok / spadanie ma pierwszeństwo przed resztą animacji
+	if is_on_floor():
+		_air_time = 0.0
+		if velocity.y <= 0.0:
+			_jumped = false
+	else:
+		_air_time += get_physics_process_delta_time()
+	if (_jumped or _air_time > JUMP_AIR_GRACE) and anim_player.has_animation(HERO_LIB + "/jump"):
+		_transition = ""
+		_was_crouching = _crouching
+		anim_player.speed_scale = jump_anim_speed
+		_play_anim("jump")
 		return
 
 	if _crouching != _was_crouching:
@@ -765,7 +883,44 @@ func _add_key_action(action: String, key: Key) -> void:
 		InputMap.action_add_event(action, ev)
 
 
+# F1: kamera z trzeciej osoby. Pokazuje model postaci (cien_gracza.gd) i odsuwa kamerę za plecy.
+func _toggle_third_person() -> void:
+	if _shadow_model == null:
+		for child in get_children():
+			if child.get_script() != null and child.has_method("_ustaw_widocznosc"):
+				_shadow_model = child
+				break
+
+	var wlacz := camera_extra_offset == Vector3.ZERO
+	if _shadow_model != null:
+		_shadow_model.call("_ustaw_widocznosc", wlacz)   # pokazuje / chowa model
+	# odległość ustawiamy tutaj (nadpisuje wartości z cien_gracza.gd)
+	camera_extra_offset = Vector3(0.0, third_person_height, third_person_distance) if wlacz else Vector3.ZERO
+
+
+# Strojenie położenia kamery względem głowy w czasie gry (numpad), wartość wypisuje w Output
+func _tune_head_camera(key: Key) -> void:
+	var krok := 0.01
+	match key:
+		KEY_KP_8: head_camera_offset.y += krok
+		KEY_KP_2: head_camera_offset.y -= krok
+		KEY_KP_4: head_camera_offset.z += krok   # w tył
+		KEY_KP_6: head_camera_offset.z -= krok   # do przodu
+		KEY_KP_7: head_camera_offset.x -= krok
+		KEY_KP_9: head_camera_offset.x += krok
+		_: return
+	print("Head Camera Offset = Vector3(%.2f, %.2f, %.2f)" % [head_camera_offset.x, head_camera_offset.y, head_camera_offset.z])
+
+
 func _input(event: InputEvent) -> void:
+	if debug_head_tune and event is InputEventKey and event.pressed:
+		if _head_bone >= 0:
+			_tune_head_camera(event.physical_keycode)
+
+	if debug_third_person and event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KEY_F1:
+		_toggle_third_person()
+
 	# klawisze testowe życia: F3 = obrażenia, F4 = leczenie
 	if debug_health_keys and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F3:
@@ -998,6 +1153,10 @@ func _process(delta: float) -> void:
 	else:
 		mouse_input = Vector2.ZERO
 
+	if _head_bone >= 0:
+		_follow_head()
+		return   # kamera w głowie: _process działa cały czas
+
 	if not camera_busy and not held_active:
 		set_process(false)   # nic więcej do roboty, oszczędzamy klatki
 
@@ -1086,6 +1245,7 @@ func _apply_gravity_and_jump(delta: float) -> void:
 	elif not _crouching and not _inventory_open() and not kontrola_zablokowana \
 			and Input.is_action_just_pressed("jump"):   # w kucki, z ekwipunkiem i w trakcie zdarzenia nie skaczemy
 		velocity.y = JUMP_VELOCITY
+		_jumped = true
 
 
 func _apply_movement(delta: float) -> void:

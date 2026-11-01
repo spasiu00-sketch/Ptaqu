@@ -1,61 +1,55 @@
 extends Node
-# Losowe zdarzenie: w polu widzenia kamery (przed graczem, w powietrzu albo na ścianie)
-# otwierają się czerwone, świecące oczy, patrzą przez chwilę i zamykają się.
-# Kamera NIE jest ruszana, gracz steruje normalnie i sam decyduje, czy je zauważy.
+# Białe oczy w polu widzenia kamery (w powietrzu albo na ścianie).
+# - stoją cały czas, maksymalnie `maks_oczu` naraz
+# - nowe pojawia się co min_przerwa..max_przerwa; gdy limit przekroczony, NAJSTARSZE zanika
+# - gdy gracz spojrzy na oko (środek ekranu), oko znika NATYCHMIAST (ta sama klatka)
+# - bez światła, tylko świecący (unshaded) biały mesh
 # Tworzy je gracz (character_body_3d.gd). Ręcznie: wymus() albo klawisz testowy.
-#
-# Oczy (mesh, materiał, światło) tworzone są RAZ w _ready() i tylko pokazywane / chowane.
 
 @export var wlaczony: bool = true
-@export var min_przerwa: float = 25.0      # minimalny czas między zdarzeniami (s)
-@export var max_przerwa: float = 70.0      # maksymalny czas między zdarzeniami (s)
+@export var min_przerwa: float = 4.0       # minimalny czas między pojawieniem się kolejnych oczu (s)
+@export var max_przerwa: float = 10.0      # maksymalny czas między pojawieniem się kolejnych oczu (s)
+@export var maks_oczu: int = 3             # ile par oczu naraz
 
 @export_group("Miejsce w kadrze")
 @export var max_kat_poziomy: float = 30.0  # o ile stopni w lewo/prawo od środka ekranu mogą się pojawić
-@export var min_kat_pionowy: float = -8.0  # kąt w pionie względem środka ekranu (min), ujemny = w dół
-@export var max_kat_pionowy: float = 14.0  # kąt w pionie względem środka ekranu (max), dodatni = w górę
+@export var min_kat_pionowy: float = -8.0  # kąt w pionie (min), ujemny = w dół
+@export var max_kat_pionowy: float = 14.0  # kąt w pionie (max), dodatni = w górę
 @export var odleglosc: float = 7.0         # maksymalna odległość oczu od kamery (m)
-@export var min_odleglosc: float = 2.0     # bliżej niż to nie stawiamy oczu (ściana tuż przed twarzą)
+@export var min_odleglosc: float = 2.0     # bliżej niż to nie stawiamy oczu
+@export var min_odstep_miedzy_oczami: float = 1.2   # minimalny dystans między parami oczu (m)
 @export_flags_3d_physics var maska_kolizji: int = 1
 
+@export_group("Patrzenie")
+@export var kat_patrzenia: float = 4.0     # w jakim stożku (stopnie od środka ekranu) oko uznajemy za "najechane" i znika
+
 @export_group("Oczy")
-@export var kolor: Color = Color(1.0, 0.05, 0.03)
+@export var kolor: Color = Color(1.0, 1.0, 1.0)
 @export var rozstaw: float = 0.32          # odległość między oczami (m)
 @export var rozmiar: float = 0.07          # wielkość oka (m)
 @export var czas_otwierania: float = 0.5
-@export var czas_otwartych: float = 1.6
-@export var czas_zamykania: float = 0.35
-@export var liczba_mrugniec: int = 1       # ile razy oczy się otwierają i zamykają
-@export var swiatlo_energia: float = 1.5   # siła czerwonej poświaty wokół oczu
-@export var dzwiek: AudioStream            # opcjonalny dźwięk przy otwarciu oczu
+@export var czas_zanikania: float = 0.8    # zanikanie najstarszych oczu po przekroczeniu limitu
+@export var dzwiek: AudioStream            # opcjonalny dźwięk przy pojawieniu się oczu
 @export var glosnosc_db: float = 0.0
 
 @export_group("Test")
 @export var tryb_testowy: bool = true      # false = klawisz testowy nic nie robi (na wersję końcową)
 @export var klawisz_testowy: Key = KEY_F3
 
-enum Stan { SPOKOJ, OTWIERANIE, PATRZY, ZAMYKANIE }
-
 const OKO_ZAMKNIETE := Vector3(1.6, 0.03, 0.35)   # spłaszczone, pionowa szczelina
 const OKO_OTWARTE := Vector3(1.6, 1.0, 0.35)
 
 var gracz: CharacterBody3D
 
-var _stan: Stan = Stan.SPOKOJ
-var _t: float = 0.0
-var _do_nastepnego: float = 0.0
 var _kamera: Camera3D
 var _audio: AudioStreamPlayer
+var _do_nastepnego: float = 0.0
+var _licznik: int = 0                       # numer kolejnego zdarzenia (do ustalenia, które oczy są najstarsze)
 
-# zasoby tworzone raz
 var _material: StandardMaterial3D
 var _mesh: SphereMesh
-var _oczy: Node3D
-var _oczy_mesh: Array[MeshInstance3D] = []
-var _swiatlo: OmniLight3D
-
-var _cel_poz := Vector3.ZERO
-var _pozostale_mrugniecia: int = 0
+var _sloty: Array[Dictionary] = []          # {"root","oczy","aktywny","zanika","otwarcie","nr","poz"}
+var _cos_patrzenia: float = 1.0
 
 
 func _ready() -> void:
@@ -77,7 +71,10 @@ func _ready() -> void:
 		_audio.volume_db = glosnosc_db
 		add_child(_audio)
 
-	_zbuduj_oczy()
+	_cos_patrzenia = cos(deg_to_rad(kat_patrzenia))
+	_zbuduj_zasoby()
+	for i in maxi(maks_oczu, 1) + 2:   # zapas na oczy, które akurat zanikają
+		_sloty.append(_zrob_slot())
 	_losuj_przerwe()
 
 
@@ -85,10 +82,9 @@ func _losuj_przerwe() -> void:
 	_do_nastepnego = randf_range(min_przerwa, maxf(max_przerwa, min_przerwa))
 
 
-# Wymusza zdarzenie od razu (np. z innego skryptu albo z jumpscare)
+# Wymusza pojawienie się nowych oczu od razu
 func wymus() -> void:
-	if _stan == Stan.SPOKOJ:
-		_start()
+	_pojaw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -100,78 +96,118 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	match _stan:
-		Stan.SPOKOJ:
-			if not wlaczony:
-				return
-			_do_nastepnego -= delta
-			if _do_nastepnego <= 0.0:
-				if not _start():
-					_do_nastepnego = 2.0   # nie wyszło (np. ściana tuż przed twarzą), próbujemy za chwilę
+	# --- pojawianie nowych ---
+	if wlaczony:
+		_do_nastepnego -= delta
+		if _do_nastepnego <= 0.0:
+			if _pojaw():
+				_losuj_przerwe()
+			else:
+				_do_nastepnego = 1.5   # nie wyszło (np. ściana tuż przed twarzą), próbujemy za chwilę
+	else:
+		# wyłączone (np. po śmierci): wszystkie oczy zanikają
+		for s in _sloty:
+			if s["aktywny"]:
+				s["zanika"] = true
 
-		Stan.OTWIERANIE:
-			_t += delta / maxf(czas_otwierania, 0.01)
-			_ustaw_otwarcie(minf(_t, 1.0))
-			if _t >= 1.0:
-				_przejdz(Stan.PATRZY)
+	# --- aktualizacja istniejących ---
+	var kam_poz := _kamera.global_position
+	var przod := -_kamera.global_transform.basis.z.normalized()
 
-		Stan.PATRZY:
-			_t += delta
-			if _t >= czas_otwartych:
-				_przejdz(Stan.ZAMYKANIE)
+	for s in _sloty:
+		if not s["aktywny"]:
+			continue
 
-		Stan.ZAMYKANIE:
-			_t += delta / maxf(czas_zamykania, 0.01)
-			_ustaw_otwarcie(1.0 - minf(_t, 1.0))
-			if _t >= 1.0:
-				if _pozostale_mrugniecia > 0:
-					_pozostale_mrugniecia -= 1
-					_przejdz(Stan.OTWIERANIE)
-				else:
-					_zakoncz()
+		# spojrzenie na oko = znika natychmiast (w tej klatce)
+		var kierunek: Vector3 = (s["poz"] - kam_poz).normalized()
+		if kierunek.dot(przod) >= _cos_patrzenia:
+			_zwolnij(s)
+			continue
 
-
-func _przejdz(nowy: Stan) -> void:
-	_stan = nowy
-	_t = 0.0
-	if nowy == Stan.OTWIERANIE and _audio != null:
-		_audio.play()
+		var o: float = s["otwarcie"]
+		if s["zanika"]:
+			o -= delta / maxf(czas_zanikania, 0.01)
+			if o <= 0.0:
+				_zwolnij(s)
+				continue
+		else:
+			o = minf(o + delta / maxf(czas_otwierania, 0.01), 1.0)
+		s["otwarcie"] = o
+		_ustaw_otwarcie(s, o)
 
 
-# ---------- Start / koniec ----------
+# ---------- Pojawianie ----------
 
-func _start() -> bool:
-	if gracz == null or _kamera == null or _stan != Stan.SPOKOJ:
+func _pojaw() -> bool:
+	if gracz == null or _kamera == null:
 		return false
 	if gracz.call("_inventory_open"):
 		return false
-	if not _znajdz_miejsce():
+
+	var slot = _wolny_slot()
+	if slot == null:
 		return false
 
-	_pozostale_mrugniecia = maxi(liczba_mrugniec - 1, 0)
-	_pokaz_oczy()
-	_przejdz(Stan.OTWIERANIE)
+	var poz = _znajdz_miejsce()
+	if poz == null:
+		return false
+
+	# limit: jeśli po dodaniu byłoby ponad maks, najstarsze (niezanikające) zaczyna zanikać
+	var zywe: Array[Dictionary] = []
+	for s in _sloty:
+		if s["aktywny"] and not s["zanika"]:
+			zywe.append(s)
+	zywe.sort_custom(func(a, b): return a["nr"] < b["nr"])
+	while zywe.size() >= maks_oczu and not zywe.is_empty():
+		var najstarsze: Dictionary = zywe.pop_front()
+		najstarsze["zanika"] = true
+
+	_licznik += 1
+	slot["aktywny"] = true
+	slot["zanika"] = false
+	slot["otwarcie"] = 0.0
+	slot["nr"] = _licznik
+	slot["poz"] = poz
+
+	var root: Node3D = slot["root"]
+	root.global_position = poz
+	var up := Vector3.UP
+	var do_gracza: Vector3 = (_kamera.global_position - poz).normalized()
+	if absf(do_gracza.dot(Vector3.UP)) > 0.99:
+		up = Vector3.RIGHT
+	if not poz.is_equal_approx(_kamera.global_position):
+		root.look_at(_kamera.global_position, up)   # oczy "patrzą" na gracza
+	_ustaw_otwarcie(slot, 0.0)
+	root.visible = true
+
+	if _audio != null:
+		_audio.play()
 	return true
 
 
-func _zakoncz() -> void:
-	_ukryj_oczy()
-	_stan = Stan.SPOKOJ
-	_t = 0.0
-	_losuj_przerwe()
+func _wolny_slot():
+	for s in _sloty:
+		if not s["aktywny"]:
+			return s
+	return null
 
 
-# ---------- Wybór miejsca (zawsze w kadrze kamery) ----------
+func _zwolnij(s: Dictionary) -> void:
+	s["aktywny"] = false
+	s["zanika"] = false
+	s["otwarcie"] = 0.0
+	(s["root"] as Node3D).visible = false
 
-# Losuje kierunek w obrębie widoku kamery i stawia oczy w powietrzu albo na ścianie.
-# Próbuje kilka razy, bo wylosowany kierunek może kończyć się ścianą tuż przed twarzą
-# albo punktem poza kadrem.
-func _znajdz_miejsce() -> bool:
+
+# ---------- Wybór miejsca (w kadrze kamery) ----------
+
+# Zwraca Vector3 albo null
+func _znajdz_miejsce():
 	var od := _kamera.global_position
 	var baza := _kamera.global_transform.basis.orthonormalized()
 	var przestrzen := gracz.get_world_3d().direct_space_state
 
-	for i in 10:
+	for i in 12:
 		var yaw := deg_to_rad(randf_range(-max_kat_poziomy, max_kat_poziomy))
 		var pitch := deg_to_rad(randf_range(min_kat_pionowy, max_kat_pionowy))
 		var lokalny := Basis.from_euler(Vector3(pitch, yaw, 0.0)) * Vector3.FORWARD
@@ -191,25 +227,29 @@ func _znajdz_miejsce() -> bool:
 			var normalna: Vector3 = trafienie["normal"]
 			cel = punkt + normalna * 0.05   # lekko przed ścianą, żeby oczy w niej nie zniknęły
 
-		# pewność, że gracz je zobaczy: punkt musi mieścić się w kadrze
 		if not _kamera.is_position_in_frustum(cel):
 			continue
 
-		_cel_poz = cel
-		return true
-	return false
+		# nie stawiamy oczu na sobie
+		var za_blisko := false
+		for s in _sloty:
+			if s["aktywny"] and (s["poz"] as Vector3).distance_to(cel) < min_odstep_miedzy_oczami:
+				za_blisko = true
+				break
+		if za_blisko:
+			continue
+
+		return cel
+	return null
 
 
 # ---------- Oczy ----------
 
-# Tworzone raz. Węzeł jest top_level, więc współrzędne są światowe (nie zależą od gracza).
-func _zbuduj_oczy() -> void:
+func _zbuduj_zasoby() -> void:
 	_material = StandardMaterial3D.new()
 	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_material.albedo_color = kolor
-	_material.emission_enabled = true
-	_material.emission = kolor
-	_material.emission_energy_multiplier = 3.0
+	# bez emisji i bez światła: unshaded wystarczy, żeby oczy były białe w ciemności
 
 	_mesh = SphereMesh.new()
 	_mesh.radius = rozmiar
@@ -217,12 +257,15 @@ func _zbuduj_oczy() -> void:
 	_mesh.radial_segments = 12
 	_mesh.rings = 6
 
-	_oczy = Node3D.new()
-	_oczy.name = "CzerwoneOczy"
-	_oczy.top_level = true
-	_oczy.visible = false
-	add_child(_oczy)
 
+func _zrob_slot() -> Dictionary:
+	var root := Node3D.new()
+	root.name = "BialeOczy"
+	root.top_level = true
+	root.visible = false
+	add_child(root)
+
+	var oczy: Array[MeshInstance3D] = []
 	for strona in [-1.0, 1.0]:
 		var oko := MeshInstance3D.new()
 		oko.mesh = _mesh
@@ -231,35 +274,17 @@ func _zbuduj_oczy() -> void:
 		oko.position = Vector3(strona * rozstaw * 0.5, 0.0, 0.0)
 		oko.scale = OKO_ZAMKNIETE
 		oko.visible = false
-		_oczy.add_child(oko)
-		_oczy_mesh.append(oko)
+		root.add_child(oko)
+		oczy.append(oko)
 
-	_swiatlo = OmniLight3D.new()
-	_swiatlo.light_color = kolor
-	_swiatlo.omni_range = 3.5
-	_swiatlo.light_energy = 0.0
-	_swiatlo.shadow_enabled = false
-	_swiatlo.position = Vector3(0.0, 0.0, -0.3)   # lekko przed oczami, w stronę gracza
-	_oczy.add_child(_swiatlo)
-
-
-func _pokaz_oczy() -> void:
-	_oczy.global_position = _cel_poz
-	var patrzy_na := _kamera.global_position
-	if not _cel_poz.is_equal_approx(patrzy_na):
-		_oczy.look_at(patrzy_na, Vector3.UP)   # oczy "patrzą" na gracza
-	_ustaw_otwarcie(0.0)
-	_oczy.visible = true
-
-
-func _ukryj_oczy() -> void:
-	_ustaw_otwarcie(0.0)
-	_oczy.visible = false
+	return {
+		"root": root, "oczy": oczy, "aktywny": false, "zanika": false,
+		"otwarcie": 0.0, "nr": 0, "poz": Vector3.ZERO,
+	}
 
 
 # 0 = zamknięte (niewidoczne), 1 = w pełni otwarte
-func _ustaw_otwarcie(otwarcie: float) -> void:
-	for oko in _oczy_mesh:
+func _ustaw_otwarcie(s: Dictionary, otwarcie: float) -> void:
+	for oko: MeshInstance3D in s["oczy"]:
 		oko.visible = otwarcie > 0.02
 		oko.scale = OKO_ZAMKNIETE.lerp(OKO_OTWARTE, otwarcie)
-	_swiatlo.light_energy = swiatlo_energia * otwarcie
