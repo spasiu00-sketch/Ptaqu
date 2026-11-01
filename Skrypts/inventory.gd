@@ -12,6 +12,38 @@ func _ready() -> void:
 	sloty.fill(null)
 
 
+# Czyści cały ekwipunek (autoload przeżywa przeładowanie sceny, np. po śmierci gracza)
+func reset() -> void:
+	sloty.fill(null)
+	zmieniono.emit()
+
+
+# Przenosi przedmiot ze slotu 'z' do slotu 'do' (przeciąganie w ekwipunku):
+# pusty cel = przeniesienie, ten sam przedmiot = scalenie stosów (do limitu), inny = zamiana miejscami
+func przenies(z: int, do: int) -> void:
+	if z == do or z < 0 or z >= ROZMIAR or do < 0 or do >= ROZMIAR:
+		return
+	var a = sloty[z]
+	var b = sloty[do]
+	if a == null:
+		return
+
+	if b != null and _to_samo(a.item, b.item):
+		var wolne: int = _max_w_slocie(a.item) - b.ilosc
+		if wolne > 0:
+			var ile_przenosimy: int = mini(wolne, a.ilosc)
+			b.ilosc += ile_przenosimy
+			a.ilosc -= ile_przenosimy
+			if a.ilosc <= 0:
+				sloty[z] = null
+			zmieniono.emit()
+			return
+
+	sloty[z] = b
+	sloty[do] = a
+	zmieniono.emit()
+
+
 func _max_w_slocie(item: Item) -> int:
 	return item.max_stack if item.stackowalny else 1
 
@@ -66,33 +98,6 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 
 	zmieniono.emit()
 	return true
-
-
-# Przenosi zawartość slotu 'z' na slot 'do'.
-# Pusty cel = przeniesienie, ten sam stackowalny przedmiot = scalenie, inaczej = zamiana miejscami.
-func przenies(z: int, do: int) -> void:
-	if z == do or z < 0 or do < 0 or z >= ROZMIAR or do >= ROZMIAR:
-		return
-	var a = sloty[z]
-	var b = sloty[do]
-	if a == null:
-		return
-
-	if b == null:
-		sloty[do] = a
-		sloty[z] = null
-	elif _to_samo(a.item, b.item) and a.item.stackowalny:
-		var max_s := _max_w_slocie(a.item)
-		var dodane: int = mini(max_s - b.ilosc, a.ilosc)
-		b.ilosc += dodane
-		a.ilosc -= dodane
-		if a.ilosc <= 0:
-			sloty[z] = null
-	else:
-		sloty[z] = b
-		sloty[do] = a
-
-	zmieniono.emit()
 
 
 func usun(indeks: int, ilosc: int = 1) -> void:

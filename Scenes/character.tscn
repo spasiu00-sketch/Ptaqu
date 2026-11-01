@@ -1,8 +1,6 @@
 [gd_scene format=3 uid="uid://csrmuvwj0fefo"]
 
 [ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
-[ext_resource type="Script" uid="uid://p0irveodxscj" path="res://Skrypts/character.gd" id="1_pjt0s"]
-[ext_resource type="Script" uid="uid://tpolc2lqaeir" path="res://Skrypts/camera_3d.gd" id="3_0qfo5"]
 [ext_resource type="AudioStream" uid="uid://cvdk3rorigxdy" path="res://Sounds/serce.mp3" id="3_le1tg"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/spot_light_3d.gd" id="3_wa5vi"]
 [ext_resource type="AudioStream" uid="uid://dexclg5as7mje" path="res://Sounds/hasin2004-breathing-fast-247449.mp3" id="4_2daya"]
@@ -14,12 +12,26 @@
 [ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="8_bwfjh"]
 [ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Skrypts/trzymany_obiekt.gd" id="11_l1rcp"]
 
+[sub_resource type="GDScript" id="GDScript_7iw6i"]
+script/source = "extends Node3D
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
+	pass
+"
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
 radius = 0.26220703
 height = 1.2595339
 
 [node name="Node3D" type="Node3D" unique_id=94253958]
-script = ExtResource("1_pjt0s")
+script = SubResource("GDScript_7iw6i")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
@@ -34,7 +46,6 @@ shape = SubResource("CapsuleShape3D_bhunq")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03952968, 0.9345341, -0.052930355)
 doppler_tracking = 2
 near = 0.052
-script = ExtResource("3_0qfo5")
 
 [node name="Cofanie" type="Node3D" parent="CharacterBody3D/Camera3D" unique_id=397148804 node_paths=PackedStringArray("obiekt", "swiatlo")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03952968, 0, 0)

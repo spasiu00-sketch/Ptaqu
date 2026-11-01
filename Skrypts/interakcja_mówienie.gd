@@ -20,10 +20,13 @@ const ZNAKI_POLSKIE := "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ"
 static var _glos_tts: String = ""
 static var _glos_gotowy: bool = false
 
+# Napis jest jeden na całą grę, więc jego animacja też musi być jedna:
+# tween i flaga "pisze" są wspólne (wcześniej każdy obiekt miał własne i walczyły o ten sam label).
+static var _tween: Tween
+static var _pisze: bool = false   # true, dopóki trwa efekt pisania tekstu
+
 var _uzyty := false
-var _pisze := false   # true, dopóki trwa efekt pisania tekstu
 var _audio: AudioStreamPlayer3D
-var _tween: Tween
 
 
 func _ready() -> void:
@@ -114,11 +117,13 @@ func _pokaz_napis(t: String) -> void:
 	var label := _pobierz_label()
 	if _tween and _tween.is_valid():
 		_tween.kill()
+	_pisze = false
 
 	label.text = t
 	label.modulate.a = 1.0
 
-	_tween = create_tween()
+	# tween na drzewie, a nie na tym obiekcie: nie ginie, gdy obiekt zniknie ze sceny (np. zostanie podniesiony)
+	_tween = get_tree().create_tween()
 	if efekt_pisania:
 		_pisze = true
 		label.visible_ratio = 0.0

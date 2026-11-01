@@ -1,9 +1,11 @@
 class_name EkranZdrowia
 extends CanvasLayer
 # Nakładka na obraz: im mniej życia, tym ciemniejsze brzegi ekranu, odbarwienie,
-# rozmazanie obrazu (zmęczenie) i pulsowanie (jak w Battlefroncie / Callu of Duty).
+# rozmazanie obrazu i pulsowanie (jak w Battlefroncie / Callu of Duty).
+# Rysuje też rozmazanie ze zmęczenia (sprint), żeby cały efekt był JEDNYM odczytem ekranu.
 # Tworzy ją gracz (character_body_3d.gd). Sterowanie:
 #   ustaw_natezenie(0..1)  - 0 = pełne życie, 1 = prawie martwy
+#   ustaw_zmeczenie(0..1)  - 0 = wypoczęty, 1 = na limicie wytrzymałości
 #   blysk_obrazen()        - krótki czerwony błysk po trafieniu
 #   smierc()               - ekran stopniowo robi się czarny
 
@@ -14,19 +16,21 @@ extends CanvasLayer
 
 @export_group("Rozmazanie")
 @export var rozmycie_wlaczone: bool = true
-@export var rozmycie_px: float = 7.0        # maksymalny promień rozmazania w pikselach (przy 1.0 natężenia)
+@export var rozmycie_lod: float = 3.0       # maksymalny poziom mipmapy przy rozmazaniu z życia (3 ~ promień 7-8 px)
 @export_range(0.0, 1.0, 0.01) var rozmycie_start: float = 0.15   # od jakiego natężenia zaczyna się rozmazanie
 
+# Rozmazanie = jedna próbka z mipmapy ekranu (zamiast 17 próbek na piksel)
 const SHADER_CODE := """
 shader_type canvas_item;
 
-uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_linear;
+uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_linear_mipmap;
 uniform float intensity : hint_range(0.0, 1.0) = 0.0;
 uniform float pulse : hint_range(0.0, 1.0) = 0.0;
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform float death : hint_range(0.0, 1.0) = 0.0;
 uniform float blur : hint_range(0.0, 1.0) = 0.0;
-uniform float blur_px = 7.0;
+uniform float fatigue : hint_range(0.0, 1.0) = 0.0;
+uniform float blur_lod = 3.0;
 uniform vec3 blood_color : source_color = vec3(0.45, 0.0, 0.0);
 
 void fragment() {
@@ -34,21 +38,20 @@ void fragment() {
 
 	// odległość od środka: 0 = środek, 1 = róg ekranu
 	float d = length(uv - 0.5) * 1.41421;
+	float dc = distance(uv, vec2(0.5));
 
-	vec3 col = texture(screen_tex, uv).rgb;
-
-	// rozmazanie: mocniejsze na brzegach, lekko pulsuje razem z oddechem
+	// poziom rozmazania: z życia (mocniejsze na brzegach, pulsuje) albo ze zmęczenia, bierzemy większy
+	float lod = 0.0;
 	if (blur > 0.001) {
-		float r = blur * blur_px * (0.4 + 0.9 * d) * (1.0 + 0.4 * pulse);
-		vec3 sum = col;
-		for (int i = 0; i < 8; i++) {
-			float a = float(i) * 0.785398;
-			vec2 o = vec2(cos(a), sin(a)) * r * SCREEN_PIXEL_SIZE;
-			sum += texture(screen_tex, uv + o).rgb;
-			sum += texture(screen_tex, uv + o * 0.5).rgb;
-		}
-		col = sum / 17.0;
+		lod = blur * blur_lod * (0.4 + 0.9 * d) * (1.0 + 0.4 * pulse);
 	}
+	if (fatigue > 0.001) {
+		lod = max(lod, fatigue * 3.5 * (0.4 + dc * 1.2));
+	}
+	vec3 col = textureLod(screen_tex, uv, lod).rgb;
+
+	// winieta ze zmęczenia
+	col *= 1.0 - smoothstep(0.35, 0.9, dc) * fatigue * 0.6;
 
 	// im większe intensity, tym bliżej środka zaczyna się ciemność
 	float start = mix(1.0, 0.0, intensity);
@@ -77,13 +80,16 @@ void fragment() {
 """
 
 var _rect: ColorRect
+var _kopia: BackBufferCopy
 var _mat: ShaderMaterial
 var _cel: float = 0.0
 var _aktualne: float = 0.0
+var _zmeczenie: float = 0.0
 var _blysk: float = 0.0
 var _smierc: float = 0.0
 var _martwy: bool = false
 var _czas: float = 0.0
+var _aktywna: bool = false
 
 
 func _ready() -> void:
@@ -94,7 +100,14 @@ func _ready() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = shader
 	_mat.set_shader_parameter("blood_color", Vector3(kolor_krwi.r, kolor_krwi.g, kolor_krwi.b))
-	_mat.set_shader_parameter("blur_px", rozmycie_px)
+	_mat.set_shader_parameter("blur_lod", rozmycie_lod)
+
+	# Bez tego kolejna nakładka z hint_screen_texture nie widzi wyniku poprzedniej
+	# (Godot kopiuje ekran tylko raz). Włączony tylko, gdy nakładka jest widoczna.
+	_kopia = BackBufferCopy.new()
+	_kopia.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_kopia.visible = false
+	add_child(_kopia)
 
 	_rect = ColorRect.new()
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -109,6 +122,11 @@ func ustaw_natezenie(natezenie: float, natychmiast: bool = false) -> void:
 	_cel = clampf(natezenie, 0.0, 1.0)
 	if natychmiast:
 		_aktualne = _cel
+
+
+# sila: 0.0 (wypoczęty) ... 1.0 (na limicie wytrzymałości)
+func ustaw_zmeczenie(sila: float) -> void:
+	_zmeczenie = clampf(sila, 0.0, 1.0)
 
 
 func blysk_obrazen() -> void:
@@ -126,9 +144,12 @@ func _process(delta: float) -> void:
 	if _martwy:
 		_smierc = move_toward(_smierc, 1.0, delta * szybkosc_czernienia)
 
-	# nic do rysowania = wyłączamy nakładkę (oszczędność)
-	var aktywna := _aktualne > 0.002 or _blysk > 0.0 or _smierc > 0.0
-	_rect.visible = aktywna
+	# nic do rysowania = wyłączamy nakładkę (oszczędność: brak odczytu ekranu)
+	var aktywna := _aktualne > 0.002 or _blysk > 0.0 or _smierc > 0.0 or _zmeczenie > 0.01
+	if aktywna != _aktywna:
+		_aktywna = aktywna
+		_rect.visible = aktywna
+		_kopia.visible = aktywna
 	if not aktywna:
 		return
 
@@ -148,3 +169,4 @@ func _process(delta: float) -> void:
 	_mat.set_shader_parameter("flash", _blysk)
 	_mat.set_shader_parameter("death", _smierc)
 	_mat.set_shader_parameter("blur", rozmycie)
+	_mat.set_shader_parameter("fatigue", _zmeczenie)

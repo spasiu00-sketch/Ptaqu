@@ -99,6 +99,7 @@ var _volume: int = 8
 var _starting: bool = false
 var _lamp_dip: float = 0.0
 var _glitch_t: float = 0.0
+var _title_normal: bool = true   # true = tytuł ma domyślny cień (nie ruszamy motywu co klatkę)
 
 
 func _ready() -> void:
@@ -246,7 +247,9 @@ func _build_atmosphere() -> void:
 # ---------- Menu ----------
 
 func _rebuild_menu() -> void:
+	# remove_child, żeby stare etykiety nie zostały w układzie do końca klatki
 	for c in _menu_box.get_children():
+		_menu_box.remove_child(c)
 		c.queue_free()
 	_labels.clear()
 
@@ -420,7 +423,9 @@ func _process(delta: float) -> void:
 	_lamp_dip = maxf(_lamp_dip - delta * 2.5, 0.0)
 	var lamp := _lamp_level()
 
-	# tytuł: migotanie + rzadki glitch
+	# tytuł: migotanie + rzadki glitch.
+	# Nadpisania motywu (add_theme_constant_override) powiadamiają kontrolkę i przeliczają układ,
+	# więc w trakcie glitcha ustawiamy je co klatkę, a po jego końcu raz wracamy do domyślnych.
 	if _glitch_t <= 0.0 and randf() < 0.004:
 		_glitch_t = randf_range(0.06, 0.22)
 	if _glitch_t > 0.0:
@@ -429,10 +434,13 @@ func _process(delta: float) -> void:
 		_title.modulate = Color(1.0, k, k)
 		_title.add_theme_constant_override("shadow_offset_x", randi_range(-10, 10))
 		_title.add_theme_constant_override("shadow_offset_y", randi_range(-4, 6))
+		_title_normal = false
 	else:
 		_title.modulate = Color(lamp, lamp, lamp)
-		_title.add_theme_constant_override("shadow_offset_x", 5)
-		_title.add_theme_constant_override("shadow_offset_y", 5)
+		if not _title_normal:
+			_title.add_theme_constant_override("shadow_offset_x", 5)
+			_title.add_theme_constant_override("shadow_offset_y", 5)
+			_title_normal = true
 
 	# wybrana pozycja: żywe pulsowanie (z zapasem jasności, żeby nigdy nie znikała)
 	for i in _labels.size():

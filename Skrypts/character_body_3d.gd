@@ -31,28 +31,12 @@ const BOB_CROUCH_AMP := 0.5          # mnożnik siły kołysania w kucki
 # dźwięki sprintu (sapanie, serce)
 const SOUND_SILENT_DB := -40.0       # tyle uznajemy za ciszę przy wyciszaniu / wzmacnianiu
 
-# rozmazanie ekranu przy zmęczeniu (shader czyta obraz ekranu i rozmywa go mipmapami)
-const FATIGUE_BLUR_SHADER := """
-shader_type canvas_item;
-uniform sampler2D ekran : hint_screen_texture, filter_linear_mipmap;
-uniform float sila : hint_range(0.0, 1.0) = 0.0;
-
-void fragment() {
-	vec2 uv = SCREEN_UV;
-	float d = distance(uv, vec2(0.5));
-	float lod = sila * 3.5 * (0.4 + d * 1.2);
-	vec3 c = textureLod(ekran, uv, lod).rgb;
-	float winieta = smoothstep(0.35, 0.9, d) * sila * 0.6;
-	c *= 1.0 - winieta;
-	COLOR = vec4(c, 1.0);
-}
-"""
-
 # preload zamiast class_name: działa nawet, gdy Godot nie odświeżył listy klas
 const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
 const GlitchScript := preload("res://Skrypts/glitch_kamery.gd")
 const HealthOverlayScript := preload("res://Skrypts/zdrowie_ekran.gd")
 const OczyScript := preload("res://Skrypts/oczy_zjawa.gd")
+const DeathScreenScript := preload("res://Skrypts/ekran_smierci.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,
@@ -88,10 +72,11 @@ const INPUT_KEYS := {
 @export var regen_delay: float = 8.0                   # ile sekund bez obrażeń, zanim życie zacznie wracać
 @export var regen_speed: float = 1.5                   # punktów życia na sekundę (1.5 = pełne życie w ok. minutę)
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0   # poniżej tego % życia ekran zaczyna ciemnieć
-@export var restart_on_death: bool = true              # po śmierci wczytaj scenę od nowa
-@export var death_delay: float = 5.0                   # ile sekund po śmierci do restartu
-@export var death_text: String = "NIE ZDANE"           # napis po śmierci
-@export var death_text_delay: float = 1.0              # po ilu sekundach od śmierci pojawia się napis
+@export var death_screen_enabled: bool = true          # true = po śmierci napis "NIE ZDANE" i przycisk ZRESETUJ (zamiast automatycznego restartu)
+@export var death_screen_delay: float = 1.5            # ile sekund po śmierci pokazać ten ekran
+@export var death_sound: AudioStream                   # opcjonalny dźwięk przy pojawieniu się napisu
+@export var restart_on_death: bool = true              # tylko gdy ekran śmierci wyłączony: po śmierci wczytaj scenę od nowa
+@export var death_delay: float = 3.0                   # ile sekund po śmierci do automatycznego restartu
 @export var debug_health_keys: bool = true             # F3 = -10 życia, F4 = +10 życia (do testów, wyłącz w wersji końcowej)
 
 @export_group("Życie - oddech i kaszel")
@@ -178,9 +163,19 @@ var oczy = null                    # instancja oczy_zjawa.gd
 # true = zdarzenie (np. czerwone oczy) przejęło kamerę: blokuje myszkę i ruch gracza
 var kontrola_zablokowana: bool = false
 
+# Wstrząs kamery z zewnątrz (np. jumpscare.gd animuje tę właściwość tweenem).
+# Dodawany do h_offset / v_offset kamery w _update_head_bob.
+var shake_offset: Vector2 = Vector2.ZERO
+
+# Dodatkowe przesunięcie kamery z zewnątrz (np. tryb testowy w cien_gracza.gd)
+var camera_extra_offset: Vector3 = Vector3.ZERO:
+	set(value):
+		camera_extra_offset = value
+		_apply_camera_position()
+
 # życie
 var health: float = 100.0
-var health_overlay = null          # instancja zdrowie_ekran.gd
+var health_overlay = null          # instancja zdrowie_ekran.gd (ciemnienie + rozmazanie życia i zmęczenia)
 var _since_damage: float = 0.0     # ile sekund minęło od ostatnich obrażeń
 var _dead: bool = false
 var low_breath_player: AudioStreamPlayer = null   # oddech przy niskim życiu
@@ -193,8 +188,7 @@ var stamina: float = 1.0            # 1.0 = pełna, 0.0 = wyczerpany
 var _exhausted: bool = false        # true = nie można sprintować, dopóki wytrzymałość nie wróci do progu
 var _fatigue: float = 0.0           # 1.0 - stamina (0 = wypoczęty, 1 = na limicie)
 var _fatigue_time: float = 0.0      # czas do kołysania kamery przy zmęczeniu
-var _fatigue_blur_mat: ShaderMaterial = null
-var _fatigue_blur_rect: ColorRect = null
+var _last_fatigue_blur: float = -1.0   # ostatnia wartość wysłana do nakładki (wysyłamy tylko zmiany)
 
 # ruch (liczone raz na klatkę fizyki)
 var _h_speed: float = 0.0
@@ -216,10 +210,16 @@ var _crouch_h: float = 1.1
 var _stand_y: float = 0.0     # pozycja Y węzła kolizji w staniu
 var _cam_offset: float = 0.0  # aktualne przesunięcie kamery w dół (<= 0)
 
+# kamera: pozycja = baza + kucanie + head bob + przesunięcie z zewnątrz (liczona od zera, bez dryfu)
+var _cam_base_pos := Vector3.ZERO
+
 # head bob kamery
 var bob_czas := 0.0
 var _head_bob_offset := Vector3.ZERO   # aktualne przesunięcie kamery od bobu
 var _head_bob_roll: float = 0.0        # aktualny przechył kamery od bobu
+
+# napis [E]
+var _prompt_target: Object = null
 
 # latarka
 var held_base_pos := Vector3.ZERO
@@ -235,6 +235,7 @@ var mouse_input := Vector2.ZERO
 
 func _ready() -> void:
 	set_process(false)   # _process tylko gdy trzeba (latarka w ręku / ruch kamery przy kucaniu)
+	_cam_base_pos = camera.position
 	_setup_input_actions()
 	_setup_footstep_player()
 	_setup_sprint_audio()
@@ -247,7 +248,7 @@ func _ready() -> void:
 	_setup_health()
 	_setup_glitch()
 	_setup_oczy()
-	_setup_fatigue_blur()
+	_apply_camera_position()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -329,27 +330,17 @@ func _setup_oczy() -> void:
 	add_child(oczy)
 
 
+# ---------- Kamera ----------
+
+# Jedyne miejsce, które ustawia camera.position
+func _apply_camera_position() -> void:
+	if camera == null:
+		return
+	camera.position = _cam_base_pos + Vector3(0.0, _cam_offset, 0.0) \
+			+ _head_bob_offset + camera_extra_offset
+
+
 # ---------- Wytrzymałość ----------
-
-# Warstwa z rozmazaniem ekranu (layer 1, więc napis [E] i ekwipunek zostają ostre)
-func _setup_fatigue_blur() -> void:
-	var warstwa := CanvasLayer.new()
-	warstwa.name = "FatigueBlurLayer"
-	warstwa.layer = 1
-	add_child(warstwa)
-
-	var shader := Shader.new()
-	shader.code = FATIGUE_BLUR_SHADER
-	_fatigue_blur_mat = ShaderMaterial.new()
-	_fatigue_blur_mat.shader = shader
-
-	_fatigue_blur_rect = ColorRect.new()
-	_fatigue_blur_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_fatigue_blur_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fatigue_blur_rect.material = _fatigue_blur_mat
-	_fatigue_blur_rect.visible = false
-	warstwa.add_child(_fatigue_blur_rect)
-
 
 # Sprint zużywa wytrzymałość, odpoczynek ją odnawia (w bezruchu szybciej).
 # Po dojściu do zera sprint jest zablokowany, dopóki wytrzymałość nie wróci do progu.
@@ -377,12 +368,17 @@ func _update_stamina(delta: float) -> void:
 	_update_fatigue_blur()
 
 
+# Rozmazanie ze zmęczenia rysuje ta sama nakładka co ciemnienie z życia (jeden odczyt ekranu).
+# Wysyłamy wartość tylko wtedy, gdy się zmieniła.
 func _update_fatigue_blur() -> void:
-	if _fatigue_blur_rect == null:
+	if health_overlay == null:
 		return
 	var blisko := pow(_fatigue, fatigue_effect_power)
-	_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
-	_fatigue_blur_rect.visible = blisko > 0.01
+	var sila := clampf(blisko * fatigue_blur_amount, 0.0, 1.0)
+	if is_equal_approx(sila, _last_fatigue_blur):
+		return
+	_last_fatigue_blur = sila
+	health_overlay.ustaw_zmeczenie(sila)
 
 
 func _can_sprint() -> bool:
@@ -515,52 +511,22 @@ func _die() -> void:
 		prompt_label.visible = false
 	if health_overlay:
 		health_overlay.smierc()
-	_show_death_text()
-	if restart_on_death:
+	if death_screen_enabled:
+		await get_tree().create_timer(death_screen_delay).timeout
+		if not is_inside_tree():
+			return
+		var ekran = DeathScreenScript.new()
+		ekran.dzwiek = death_sound
+		add_child(ekran)
+		ekran.pokaz()   # przycisk ZRESETUJ sam wczyta grę od nowa i wyczyści ekwipunek
+	elif restart_on_death:
 		await get_tree().create_timer(death_delay).timeout
+		# Inventory to autoload i przeżywa przeładowanie sceny: czyścimy go,
+		# inaczej przedmioty z mapy odrodzą się, a stare zostałyby w ekwipunku (duplikacja)
+		var inv := get_node_or_null("/root/Inventory")
+		if inv != null and inv.has_method("reset"):
+			inv.reset()
 		get_tree().reload_current_scene()
-
-
-# Napis po śmierci w stylu tytułu z menu (layer 4: nad overlayem życia, HUD i ekwipunkiem)
-func _show_death_text() -> void:
-	var warstwa := CanvasLayer.new()
-	warstwa.name = "DeathTextLayer"
-	warstwa.layer = 4
-	add_child(warstwa)
-
-	# czcionka jak w MainMenu.gd
-	var base := SystemFont.new()
-	base.font_names = PackedStringArray(
-		["Georgia", "Palatino Linotype", "Times New Roman", "DejaVu Serif", "serif"])
-	base.font_weight = 700
-	base.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-	base.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
-	base.generate_mipmaps = true
-	var font := FontVariation.new()
-	font.base_font = base
-	font.spacing_glyph = 5
-
-	var napis := Label.new()
-	napis.set_anchors_preset(Control.PRESET_FULL_RECT)
-	napis.text = death_text
-	napis.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	napis.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	napis.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	napis.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	napis.add_theme_font_override("font", font)
-	napis.add_theme_font_size_override("font_size", 120)
-	napis.add_theme_color_override("font_color", Color(0.92, 0.89, 0.82))
-	napis.add_theme_color_override("font_outline_color", Color(0.03, 0.0, 0.0, 0.95))
-	napis.add_theme_constant_override("outline_size", 6)
-	napis.add_theme_color_override("font_shadow_color", Color(0.62, 0.07, 0.06))
-	napis.add_theme_constant_override("shadow_offset_x", 5)
-	napis.add_theme_constant_override("shadow_offset_y", 5)
-	napis.modulate.a = 0.0
-	warstwa.add_child(napis)
-
-	var tween := create_tween()
-	tween.tween_interval(death_text_delay)
-	tween.tween_property(napis, "modulate:a", 1.0, 1.5)
 
 
 # ---------- Ekwipunek ----------
@@ -666,8 +632,8 @@ func _update_crouch_camera(delta: float) -> bool:
 	var new_offset := lerpf(_cam_offset, target, 1.0 - exp(-crouch_transition_speed * delta))
 	if absf(new_offset - target) < 0.001:
 		new_offset = target
-	camera.position.y += new_offset - _cam_offset   # różnica, więc nie psuje innych przesunięć kamery
 	_cam_offset = new_offset
+	_apply_camera_position()
 	return new_offset != target
 
 
@@ -694,6 +660,12 @@ func _input(event: InputEvent) -> void:
 			take_damage(10.0)
 		elif event.physical_keycode == KEY_F4:
 			heal(10.0)
+
+	# latarka (F) nie reaguje, gdy gracz nie steruje (ekwipunek, zdarzenie, śmierć).
+	# Blokujemy tylko wciśnięcie: puszczenie klawisza musi dojść do latarki
+	if (_dead or kontrola_zablokowana or _inventory_open()) \
+			and InputMap.has_action("flashlight") and event.is_action_pressed("flashlight"):
+		get_viewport().set_input_as_handled()
 
 	# martwy gracz nie steruje postacią
 	if _dead:
@@ -778,12 +750,21 @@ func _create_prompt_label() -> void:
 	hud.add_child(prompt_label)
 
 
+# Tekst i widoczność zmieniamy tylko wtedy, gdy zmienił się cel (bez pracy co klatkę)
 func _update_prompt() -> void:
 	var target := _get_interact_target()
-	prompt_label.visible = target != null and not _inventory_open() and not kontrola_zablokowana
-	if target:
-		var text = target.get("prompt_text")
-		prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
+	var pokaz := target != null and not _inventory_open() and not kontrola_zablokowana
+
+	if pokaz:
+		if target != _prompt_target:
+			_prompt_target = target
+			var text = target.get("prompt_text")
+			prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
+	else:
+		_prompt_target = null
+
+	if prompt_label.visible != pokaz:
+		prompt_label.visible = pokaz
 
 
 # ---------- Dźwięk kroków ----------
@@ -847,6 +828,7 @@ func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlay
 
 # MP3 / OGG zapętlamy w kodzie (bez płynnych przerw). WAV nie jest ruszany,
 # bo ciągłość zapewnia ponowne odpalenie dźwięku zaraz po jego końcu (patrz _drive_loop).
+# Dla WAV lepiej ustawić pętlę w ustawieniach importu (Loop Mode).
 func _prepare_loop(stream: AudioStream) -> void:
 	if stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
@@ -1030,10 +1012,11 @@ func _apply_movement(delta: float) -> void:
 # ---------- Head bob kamery ----------
 
 # Kamera kołysze się góra-dół, na boki i przechyla (roll). Przy sprincie efekt jest mocniejszy
-# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycja liczona jako różnica (offset),
-# więc nie gryzie się z kucaniem. Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
-# Na to dochodzi kołysanie ze zmęczenia (h_offset / v_offset kamery + dodatkowy przechył),
-# które rośnie dopiero blisko limitu wytrzymałości.
+# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycję składa _apply_camera_position()
+# z osobnych części (baza + kucanie + bob + offset z zewnątrz), więc nic się nie gryzie ani nie dryfuje.
+# Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
+# Na to dochodzi kołysanie ze zmęczenia (h_offset / v_offset kamery + dodatkowy przechył)
+# oraz wstrząs z zewnątrz (shake_offset), które rosną dopiero blisko limitu wytrzymałości.
 func _update_head_bob(delta: float) -> void:
 	var cel_poz := Vector3.ZERO
 	var cel_roll := 0.0
@@ -1058,17 +1041,16 @@ func _update_head_bob(delta: float) -> void:
 
 	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
 
-	var nowy_poz := _head_bob_offset.lerp(cel_poz, smooth)
-	camera.position += nowy_poz - _head_bob_offset
-	_head_bob_offset = nowy_poz
+	_head_bob_offset = _head_bob_offset.lerp(cel_poz, smooth)
+	_apply_camera_position()
 
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
 	# zmęczenie: im bliżej limitu, tym mocniejsze (i szybsze) kołysanie postacią
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_time += delta * (1.0 + blisko * 1.5)
-	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko
-	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko
+	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko + shake_offset.x
+	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko + shake_offset.y
 	var fatigue_roll := sin(_fatigue_time * 0.9) * fatigue_roll_amount * blisko
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll

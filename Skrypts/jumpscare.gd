@@ -101,11 +101,24 @@ func _blysk() -> void:
 	tween.tween_callback(warstwa.queue_free)
 
 
+# Gracz co klatkę fizyki nadpisuje camera.h_offset / v_offset (kołysanie ze zmęczenia),
+# więc wstrząs animujemy na jego właściwości shake_offset, którą dolicza do offsetów.
+# Gdy kamera nie jest dzieckiem gracza z tą właściwością, animujemy offsety kamery bezpośrednio.
 func _wstrzas() -> void:
 	var kamera := get_viewport().get_camera_3d()
 	if kamera == null or sila_wstrzasu <= 0.0:
 		return
+
+	var gracz := kamera.get_parent()
 	var tween := create_tween()
+
+	if gracz != null and gracz.get("shake_offset") != null:
+		for i in 8:
+			var losowy := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * sila_wstrzasu
+			tween.tween_property(gracz, "shake_offset", losowy, 0.04)
+		tween.tween_property(gracz, "shake_offset", Vector2.ZERO, 0.06)
+		return
+
 	for i in 8:
 		var losowy := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * sila_wstrzasu
 		tween.tween_property(kamera, "h_offset", losowy.x, 0.04)

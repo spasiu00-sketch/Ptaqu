@@ -4,6 +4,8 @@ extends Node3D
 #
 # TRYB TESTOWY: klawisz F2 pokazuje model i odsuwa kamerę za plecy postaci,
 # żeby można było sprawdzić animację chodzenia. Ponowne F2 wraca do normalnego widoku.
+# Kamerą nie ruszamy bezpośrednio: ustawiamy graczowi camera_extra_offset,
+# dzięki temu nie psujemy kucania ani kołysania kamery.
 
 @export var tryb_testowy: bool = true                 # false = F2 nic nie robi (na wersję końcową)
 @export var klawisz_testowy: Key = KEY_F2
@@ -11,16 +13,13 @@ extends Node3D
 @export var podniesienie_kamery: float = 0.4          # ile metrów wyżej w trybie testowym
 
 var _meshe: Array[Node] = []
-var _kamera: Camera3D
-var _kamera_pozycja: Vector3
+var _gracz: Node
 var _widoczny: bool = false
 
 
 func _ready() -> void:
 	_meshe = find_children("*", "GeometryInstance3D", true, false)
-	_kamera = get_parent().get_node_or_null("Camera3D") as Camera3D
-	if _kamera:
-		_kamera_pozycja = _kamera.position
+	_gracz = get_parent()
 	_ustaw_widocznosc(false)
 
 
@@ -39,7 +38,6 @@ func _ustaw_widocznosc(widoczny: bool) -> void:
 	for mesh in _meshe:
 		mesh.cast_shadow = tryb
 
-	if _kamera:
-		_kamera.position = _kamera_pozycja
-		if widoczny:
-			_kamera.position += Vector3(0.0, podniesienie_kamery, odsuniecie_kamery)
+	if _gracz != null and "camera_extra_offset" in _gracz:
+		_gracz.set("camera_extra_offset",
+				Vector3(0.0, podniesienie_kamery, odsuniecie_kamery) if widoczny else Vector3.ZERO)

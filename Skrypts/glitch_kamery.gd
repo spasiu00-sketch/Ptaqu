@@ -14,6 +14,7 @@ extends CanvasLayer
 @export var debug_glitch: bool = false
 
 var _rect: ColorRect
+var _kopia: BackBufferCopy
 var _mat: ShaderMaterial
 var _sfx: AudioStreamPlayer
 var _do_nastepnego: float = 0.0
@@ -22,7 +23,7 @@ var _czas_trwania: float = 0.0
 
 
 func _ready() -> void:
-	layer = 1   # pod HUD (2) i jumpscare (100+)
+	layer = 1   # pod HUD (2) i jumpscare (100+); w drzewie po nakładce zdrowia, więc rysuje się po niej
 
 	var shader := load("res://Shader/glitch.gdshader") as Shader
 	if shader == null:
@@ -33,6 +34,13 @@ func _ready() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = shader
 	_mat.set_shader_parameter("strength", 0.0)
+
+	# Świeża kopia ekranu razem z efektem zdrowia / zmęczenia (Godot kopiuje ekran tylko raz).
+	# Włączona tylko na czas glitcha.
+	_kopia = BackBufferCopy.new()
+	_kopia.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_kopia.visible = false
+	add_child(_kopia)
 
 	_rect = ColorRect.new()
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -60,6 +68,7 @@ func trigger(czas: float = -1.0, sila: float = -1.0) -> void:
 	_pozostalo = _czas_trwania
 	_mat.set_shader_parameter("strength", sila if sila >= 0.0 else max_sila)
 	_rect.visible = true
+	_kopia.visible = true
 	if dzwiek != null:
 		_sfx.stream = dzwiek
 		_sfx.play()
@@ -76,6 +85,7 @@ func _process(delta: float) -> void:
 		if _pozostalo <= 0.0:
 			_mat.set_shader_parameter("strength", 0.0)
 			_rect.visible = false
+			_kopia.visible = false
 			_losuj_przerwe()
 			return
 		# siła drga w trakcie glitcha
