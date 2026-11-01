@@ -31,12 +31,39 @@ const BOB_CROUCH_AMP := 0.5          # mnożnik siły kołysania w kucki
 # dźwięki sprintu (sapanie, serce)
 const SOUND_SILENT_DB := -40.0       # tyle uznajemy za ciszę przy wyciszaniu / wzmacnianiu
 
+# animacje bohatera: klucz -> nazwa pliku .res w folderze animacji
+const HERO_ANIMS := {
+	"idle": "Hero_idle",
+	"walk": "Hero_walking",
+	"crouch_idle": "Hero_idle_crouch",
+	"crouch_walk": "Hero_crouch_walk",
+	"stand_up": "Hero_crouch_to_stand",
+}
+const HERO_ANIMS_LOOPED := ["idle", "walk", "crouch_idle", "crouch_walk"]
+const HERO_LIB := "hero"
+
+# rozmazanie ekranu przy zmęczeniu (shader czyta obraz ekranu i rozmywa go mipmapami)
+const FATIGUE_BLUR_SHADER := """
+shader_type canvas_item;
+uniform sampler2D ekran : hint_screen_texture, filter_linear_mipmap;
+uniform float sila : hint_range(0.0, 1.0) = 0.0;
+
+void fragment() {
+	vec2 uv = SCREEN_UV;
+	float d = distance(uv, vec2(0.5));
+	float lod = sila * 3.5 * (0.4 + d * 1.2);
+	vec3 c = textureLod(ekran, uv, lod).rgb;
+	float winieta = smoothstep(0.35, 0.9, d) * sila * 0.6;
+	c *= 1.0 - winieta;
+	COLOR = vec4(c, 1.0);
+}
+"""
+
 # preload zamiast class_name: działa nawet, gdy Godot nie odświeżył listy klas
 const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
 const GlitchScript := preload("res://Skrypts/glitch_kamery.gd")
 const HealthOverlayScript := preload("res://Skrypts/zdrowie_ekran.gd")
 const OczyScript := preload("res://Skrypts/oczy_zjawa.gd")
-const DeathScreenScript := preload("res://Skrypts/ekran_smierci.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,
@@ -72,11 +99,8 @@ const INPUT_KEYS := {
 @export var regen_delay: float = 8.0                   # ile sekund bez obrażeń, zanim życie zacznie wracać
 @export var regen_speed: float = 1.5                   # punktów życia na sekundę (1.5 = pełne życie w ok. minutę)
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0   # poniżej tego % życia ekran zaczyna ciemnieć
-@export var death_screen_enabled: bool = true          # true = po śmierci napis "NIE ZDANE" i przycisk ZRESETUJ (zamiast automatycznego restartu)
-@export var death_screen_delay: float = 1.5            # ile sekund po śmierci pokazać ten ekran
-@export var death_sound: AudioStream                   # opcjonalny dźwięk przy pojawieniu się napisu
-@export var restart_on_death: bool = true              # tylko gdy ekran śmierci wyłączony: po śmierci wczytaj scenę od nowa
-@export var death_delay: float = 3.0                   # ile sekund po śmierci do automatycznego restartu
+@export var restart_on_death: bool = true              # po śmierci wczytaj scenę od nowa
+@export var death_delay: float = 3.0                   # ile sekund po śmierci do restartu
 @export var debug_health_keys: bool = true             # F3 = -10 życia, F4 = +10 życia (do testów, wyłącz w wersji końcowej)
 
 @export_group("Życie - oddech i kaszel")
@@ -133,6 +157,15 @@ const INPUT_KEYS := {
 @export var held_root_name: String = "Cofanie"                   # węzeł ukrywany do czasu podniesienia latarki
 @export var held_model_name: String = "Untitled_test animacji"   # model, który kołysze się przy chodzeniu
 
+@export_group("Animacje postaci")
+@export var anim_player: AnimationPlayer                 # puste = szuka węzła "AnimationPlayer2"
+@export var anim_folder: String = "res://animations/"    # folder z plikami Hero_*.res
+@export var anim_blend: float = 0.2                      # płynność przejść między animacjami (s)
+@export var sprint_anim_speed: float = 1.4               # przyspieszenie animacji chodu przy sprincie
+@export var anim_transition_speed: float = 1.0           # tempo animacji kucanie <-> wstawanie
+@export var anim_spam_speed: float = 3.0                 # mnożnik tempa, gdy C wciśnięte w trakcie trwającej animacji
+@export var debug_animations: bool = false               # true = wypisuje w Output zmiany animacji
+
 @export_group("Efekty")
 @export var glitch_wlaczony: bool = true   # losowy glitch obrazu (glitch_kamery.gd)
 
@@ -163,19 +196,9 @@ var oczy = null                    # instancja oczy_zjawa.gd
 # true = zdarzenie (np. czerwone oczy) przejęło kamerę: blokuje myszkę i ruch gracza
 var kontrola_zablokowana: bool = false
 
-# Wstrząs kamery z zewnątrz (np. jumpscare.gd animuje tę właściwość tweenem).
-# Dodawany do h_offset / v_offset kamery w _update_head_bob.
-var shake_offset: Vector2 = Vector2.ZERO
-
-# Dodatkowe przesunięcie kamery z zewnątrz (np. tryb testowy w cien_gracza.gd)
-var camera_extra_offset: Vector3 = Vector3.ZERO:
-	set(value):
-		camera_extra_offset = value
-		_apply_camera_position()
-
 # życie
 var health: float = 100.0
-var health_overlay = null          # instancja zdrowie_ekran.gd (ciemnienie + rozmazanie życia i zmęczenia)
+var health_overlay = null          # instancja zdrowie_ekran.gd
 var _since_damage: float = 0.0     # ile sekund minęło od ostatnich obrażeń
 var _dead: bool = false
 var low_breath_player: AudioStreamPlayer = null   # oddech przy niskim życiu
@@ -188,7 +211,8 @@ var stamina: float = 1.0            # 1.0 = pełna, 0.0 = wyczerpany
 var _exhausted: bool = false        # true = nie można sprintować, dopóki wytrzymałość nie wróci do progu
 var _fatigue: float = 0.0           # 1.0 - stamina (0 = wypoczęty, 1 = na limicie)
 var _fatigue_time: float = 0.0      # czas do kołysania kamery przy zmęczeniu
-var _last_fatigue_blur: float = -1.0   # ostatnia wartość wysłana do nakładki (wysyłamy tylko zmiany)
+var _fatigue_blur_mat: ShaderMaterial = null
+var _fatigue_blur_rect: ColorRect = null
 
 # ruch (liczone raz na klatkę fizyki)
 var _h_speed: float = 0.0
@@ -210,16 +234,15 @@ var _crouch_h: float = 1.1
 var _stand_y: float = 0.0     # pozycja Y węzła kolizji w staniu
 var _cam_offset: float = 0.0  # aktualne przesunięcie kamery w dół (<= 0)
 
-# kamera: pozycja = baza + kucanie + head bob + przesunięcie z zewnątrz (liczona od zera, bez dryfu)
-var _cam_base_pos := Vector3.ZERO
+# animacje bohatera
+var _anim_current: String = ""
+var _transition: String = ""   # "" / "down" (kucanie) / "up" (wstawanie)
+var _was_crouching: bool = false
 
 # head bob kamery
 var bob_czas := 0.0
 var _head_bob_offset := Vector3.ZERO   # aktualne przesunięcie kamery od bobu
 var _head_bob_roll: float = 0.0        # aktualny przechył kamery od bobu
-
-# napis [E]
-var _prompt_target: Object = null
 
 # latarka
 var held_base_pos := Vector3.ZERO
@@ -235,7 +258,6 @@ var mouse_input := Vector2.ZERO
 
 func _ready() -> void:
 	set_process(false)   # _process tylko gdy trzeba (latarka w ręku / ruch kamery przy kucaniu)
-	_cam_base_pos = camera.position
 	_setup_input_actions()
 	_setup_footstep_player()
 	_setup_sprint_audio()
@@ -244,11 +266,12 @@ func _ready() -> void:
 	_setup_flashlight()
 	_setup_held_item()
 	_setup_crouch()
+	_setup_animations()
 	_setup_inventory()
 	_setup_health()
 	_setup_glitch()
 	_setup_oczy()
-	_apply_camera_position()
+	_setup_fatigue_blur()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -330,17 +353,124 @@ func _setup_oczy() -> void:
 	add_child(oczy)
 
 
-# ---------- Kamera ----------
+# ---------- Animacje postaci ----------
 
-# Jedyne miejsce, które ustawia camera.position
-func _apply_camera_position() -> void:
-	if camera == null:
+# Wczytuje pliki Hero_*.res z folderu animacji, wkłada je do biblioteki "hero"
+# w AnimationPlayerze modelu i odpala idle.
+func _setup_animations() -> void:
+	if anim_player == null:
+		anim_player = find_child("AnimationPlayer2", true, false) as AnimationPlayer
+	if anim_player == null:
+		push_warning("Brak AnimationPlayera modelu bohatera - przypisz 'Anim Player' w Inspektorze gracza (grupa Animacje postaci)")
 		return
-	camera.position = _cam_base_pos + Vector3(0.0, _cam_offset, 0.0) \
-			+ _head_bob_offset + camera_extra_offset
+
+	var lib := AnimationLibrary.new()
+	for key in HERO_ANIMS:
+		var path: String = anim_folder.path_join(str(HERO_ANIMS[key]) + ".res")
+		var anim := load(path) as Animation
+		if anim == null:
+			push_warning("Nie wczytano animacji: " + path)
+			continue
+		anim.loop_mode = Animation.LOOP_LINEAR if key in HERO_ANIMS_LOOPED else Animation.LOOP_NONE
+		lib.add_animation(key, anim)
+
+	if anim_player.has_animation_library(HERO_LIB):
+		anim_player.remove_animation_library(HERO_LIB)
+	anim_player.add_animation_library(HERO_LIB, lib)
+	_play_anim("idle")
+
+
+func _play_anim(key: String) -> void:
+	if key == _anim_current:
+		return
+	var full := HERO_LIB + "/" + key
+	if not anim_player.has_animation(full):
+		return
+	_anim_current = key
+	anim_player.play(full, anim_blend)
+	if debug_animations:
+		print("animacja: ", full)
+
+
+# Przejście stanie <-> kucanie to ta sama animacja (Hero_crouch_to_stand):
+# wstawanie gra ją do przodu, kucanie od tyłu. Jeśli C zostanie wciśnięte w trakcie
+# trwającego przejścia, animacja zawraca od bieżącego miejsca i gra szybciej (anim_spam_speed).
+func _start_transition(down: bool) -> void:
+	var full := HERO_LIB + "/stand_up"
+	var length := anim_player.get_animation(full).length
+	var spam := _transition != ""
+	var pos := anim_player.current_animation_position if spam else (length - 0.001 if down else 0.0)
+	var speed := anim_transition_speed * (anim_spam_speed if spam else 1.0)
+
+	_transition = "down" if down else "up"
+	_anim_current = "stand_up"
+	anim_player.speed_scale = 1.0
+	anim_player.play(full, 0.0 if spam else anim_blend, -speed if down else speed)
+	anim_player.seek(pos, true)
+	if debug_animations:
+		print("przejście: ", _transition, " (spam: ", spam, ", tempo: ", speed, ")")
+
+
+func _transition_done() -> bool:
+	if not anim_player.is_playing():
+		return true
+	var length := anim_player.get_animation(HERO_LIB + "/stand_up").length
+	var pos := anim_player.current_animation_position
+	return pos >= length - 0.03 if _transition == "up" else pos <= 0.03
+
+
+# Wybiera animację na podstawie stanu gracza (wołane co klatkę fizyki)
+func _update_animation() -> void:
+	if anim_player == null:
+		return
+
+	if _crouching != _was_crouching:
+		_was_crouching = _crouching
+		if anim_player.has_animation(HERO_LIB + "/stand_up"):
+			_start_transition(_crouching)
+
+	# trwa animacja przejścia: gra sama, aż dojdzie do końca (albo zostanie odwrócona)
+	if _transition != "":
+		if not _transition_done():
+			return
+		_transition = ""
+
+	var key: String
+	var speed := 1.0
+	if _crouching:
+		key = "crouch_walk" if _moving else "crouch_idle"
+	elif _moving:
+		key = "walk"
+		if _sprinting:
+			speed = sprint_anim_speed
+	else:
+		key = "idle"
+
+	anim_player.speed_scale = speed
+	_play_anim(key)
 
 
 # ---------- Wytrzymałość ----------
+
+# Warstwa z rozmazaniem ekranu (layer 1, więc napis [E] i ekwipunek zostają ostre)
+func _setup_fatigue_blur() -> void:
+	var warstwa := CanvasLayer.new()
+	warstwa.name = "FatigueBlurLayer"
+	warstwa.layer = 1
+	add_child(warstwa)
+
+	var shader := Shader.new()
+	shader.code = FATIGUE_BLUR_SHADER
+	_fatigue_blur_mat = ShaderMaterial.new()
+	_fatigue_blur_mat.shader = shader
+
+	_fatigue_blur_rect = ColorRect.new()
+	_fatigue_blur_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fatigue_blur_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fatigue_blur_rect.material = _fatigue_blur_mat
+	_fatigue_blur_rect.visible = false
+	warstwa.add_child(_fatigue_blur_rect)
+
 
 # Sprint zużywa wytrzymałość, odpoczynek ją odnawia (w bezruchu szybciej).
 # Po dojściu do zera sprint jest zablokowany, dopóki wytrzymałość nie wróci do progu.
@@ -368,17 +498,12 @@ func _update_stamina(delta: float) -> void:
 	_update_fatigue_blur()
 
 
-# Rozmazanie ze zmęczenia rysuje ta sama nakładka co ciemnienie z życia (jeden odczyt ekranu).
-# Wysyłamy wartość tylko wtedy, gdy się zmieniła.
 func _update_fatigue_blur() -> void:
-	if health_overlay == null:
+	if _fatigue_blur_rect == null:
 		return
 	var blisko := pow(_fatigue, fatigue_effect_power)
-	var sila := clampf(blisko * fatigue_blur_amount, 0.0, 1.0)
-	if is_equal_approx(sila, _last_fatigue_blur):
-		return
-	_last_fatigue_blur = sila
-	health_overlay.ustaw_zmeczenie(sila)
+	_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
+	_fatigue_blur_rect.visible = blisko > 0.01
 
 
 func _can_sprint() -> bool:
@@ -511,21 +636,8 @@ func _die() -> void:
 		prompt_label.visible = false
 	if health_overlay:
 		health_overlay.smierc()
-	if death_screen_enabled:
-		await get_tree().create_timer(death_screen_delay).timeout
-		if not is_inside_tree():
-			return
-		var ekran = DeathScreenScript.new()
-		ekran.dzwiek = death_sound
-		add_child(ekran)
-		ekran.pokaz()   # przycisk ZRESETUJ sam wczyta grę od nowa i wyczyści ekwipunek
-	elif restart_on_death:
+	if restart_on_death:
 		await get_tree().create_timer(death_delay).timeout
-		# Inventory to autoload i przeżywa przeładowanie sceny: czyścimy go,
-		# inaczej przedmioty z mapy odrodzą się, a stare zostałyby w ekwipunku (duplikacja)
-		var inv := get_node_or_null("/root/Inventory")
-		if inv != null and inv.has_method("reset"):
-			inv.reset()
 		get_tree().reload_current_scene()
 
 
@@ -632,8 +744,8 @@ func _update_crouch_camera(delta: float) -> bool:
 	var new_offset := lerpf(_cam_offset, target, 1.0 - exp(-crouch_transition_speed * delta))
 	if absf(new_offset - target) < 0.001:
 		new_offset = target
+	camera.position.y += new_offset - _cam_offset   # różnica, więc nie psuje innych przesunięć kamery
 	_cam_offset = new_offset
-	_apply_camera_position()
 	return new_offset != target
 
 
@@ -660,12 +772,6 @@ func _input(event: InputEvent) -> void:
 			take_damage(10.0)
 		elif event.physical_keycode == KEY_F4:
 			heal(10.0)
-
-	# latarka (F) nie reaguje, gdy gracz nie steruje (ekwipunek, zdarzenie, śmierć).
-	# Blokujemy tylko wciśnięcie: puszczenie klawisza musi dojść do latarki
-	if (_dead or kontrola_zablokowana or _inventory_open()) \
-			and InputMap.has_action("flashlight") and event.is_action_pressed("flashlight"):
-		get_viewport().set_input_as_handled()
 
 	# martwy gracz nie steruje postacią
 	if _dead:
@@ -750,21 +856,12 @@ func _create_prompt_label() -> void:
 	hud.add_child(prompt_label)
 
 
-# Tekst i widoczność zmieniamy tylko wtedy, gdy zmienił się cel (bez pracy co klatkę)
 func _update_prompt() -> void:
 	var target := _get_interact_target()
-	var pokaz := target != null and not _inventory_open() and not kontrola_zablokowana
-
-	if pokaz:
-		if target != _prompt_target:
-			_prompt_target = target
-			var text = target.get("prompt_text")
-			prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
-	else:
-		_prompt_target = null
-
-	if prompt_label.visible != pokaz:
-		prompt_label.visible = pokaz
+	prompt_label.visible = target != null and not _inventory_open() and not kontrola_zablokowana
+	if target:
+		var text = target.get("prompt_text")
+		prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
 
 
 # ---------- Dźwięk kroków ----------
@@ -828,7 +925,6 @@ func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlay
 
 # MP3 / OGG zapętlamy w kodzie (bez płynnych przerw). WAV nie jest ruszany,
 # bo ciągłość zapewnia ponowne odpalenie dźwięku zaraz po jego końcu (patrz _drive_loop).
-# Dla WAV lepiej ustawić pętlę w ustawieniach importu (Loop Mode).
 func _prepare_loop(stream: AudioStream) -> void:
 	if stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
@@ -957,6 +1053,7 @@ func _physics_process(delta: float) -> void:
 
 	_update_stamina(delta)
 	_update_head_bob(delta)
+	_update_animation()
 	_update_sprint_audio(delta)
 	_handle_footsteps(delta)
 	_update_health(delta)
@@ -978,6 +1075,7 @@ func _physics_dead(delta: float) -> void:
 	_sprinting = false
 	_update_stamina(delta)
 	_update_head_bob(delta)
+	_update_animation()
 	_update_sprint_audio(delta)
 	_update_health_audio(delta)
 
@@ -1012,11 +1110,10 @@ func _apply_movement(delta: float) -> void:
 # ---------- Head bob kamery ----------
 
 # Kamera kołysze się góra-dół, na boki i przechyla (roll). Przy sprincie efekt jest mocniejszy
-# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycję składa _apply_camera_position()
-# z osobnych części (baza + kucanie + bob + offset z zewnątrz), więc nic się nie gryzie ani nie dryfuje.
-# Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
-# Na to dochodzi kołysanie ze zmęczenia (h_offset / v_offset kamery + dodatkowy przechył)
-# oraz wstrząs z zewnątrz (shake_offset), które rosną dopiero blisko limitu wytrzymałości.
+# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycja liczona jako różnica (offset),
+# więc nie gryzie się z kucaniem. Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
+# Na to dochodzi kołysanie ze zmęczenia (h_offset / v_offset kamery + dodatkowy przechył),
+# które rośnie dopiero blisko limitu wytrzymałości.
 func _update_head_bob(delta: float) -> void:
 	var cel_poz := Vector3.ZERO
 	var cel_roll := 0.0
@@ -1041,16 +1138,17 @@ func _update_head_bob(delta: float) -> void:
 
 	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
 
-	_head_bob_offset = _head_bob_offset.lerp(cel_poz, smooth)
-	_apply_camera_position()
+	var nowy_poz := _head_bob_offset.lerp(cel_poz, smooth)
+	camera.position += nowy_poz - _head_bob_offset
+	_head_bob_offset = nowy_poz
 
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
 	# zmęczenie: im bliżej limitu, tym mocniejsze (i szybsze) kołysanie postacią
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_time += delta * (1.0 + blisko * 1.5)
-	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko + shake_offset.x
-	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko + shake_offset.y
+	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko
+	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko
 	var fatigue_roll := sin(_fatigue_time * 0.9) * fatigue_roll_amount * blisko
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll
