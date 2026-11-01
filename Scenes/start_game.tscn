@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://butl8frkc3sqx" path="res://Scenes/słup.tscn" id="7_avyfn"]
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
 [ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/Bateria_Spawner.gd" id="9_uk4b7"]
+[ext_resource type="PackedScene" uid="uid://gaiaykn6junp" path="res://Scenes/mapa.tscn" id="11_pq64c"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
 albedo_texture = ExtResource("1_u7jam")
@@ -41,7 +42,6 @@ fog_sun_scatter = 0.2
 fog_aerial_perspective = 0.021
 fog_sky_affect = 0.0
 fog_height_density = 1.719
-volumetric_fog_enabled = true
 volumetric_fog_density = 0.3802
 volumetric_fog_albedo = Color(0.5370987, 0.06610486, 0.016736297, 1)
 volumetric_fog_emission = Color(0.5254902, 0.13725491, 0.023529412, 1)
@@ -107,16 +107,17 @@ metadata/_edit_use_anchors_ = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36014593, -3.958418)
 
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 3.0422509, -4.074333)
-light_color = Color(0.7073948, 0.3970721, 0.25786108, 1)
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 12.790206, 3.7609491, -11.736578)
+light_color = Color(0.9990652, 0.9957443, 0.9943822, 1)
 light_energy = 23.635
 light_indirect_energy = 1.05
 light_volumetric_fog_energy = 0.0
 shadow_enabled = true
+shadow_bias = 10.0
 distance_fade_enabled = true
 
 [node name="SpotLight3D" type="SpotLight3D" parent="SpotLight3D" unique_id=1322380709]
-transform = Transform3D(1, 0, 0, 0, 0.9990253, 0.04414233, 0, -0.04414233, 0.9990253, -5.670358, -1.0519574, -0.075751305)
+transform = Transform3D(1, 0, 0, 0, 0.9990253, 0.04414233, 0, -0.04414233, 0.9990253, -5.6703577, -8.043758, 0.5994735)
 light_color = Color(0.7073948, 0.3970721, 0.25786108, 1)
 light_energy = 23.635
 light_indirect_energy = 1.05
@@ -161,6 +162,9 @@ gizmo_extents = 0.57
 [node name="Marker3D4" type="Marker3D" parent="Bateria_spawner" unique_id=1609239703]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15147519, 0.31973588, -0.6171317)
 gizmo_extents = 0.57
+
+[node name="Mapa" parent="." unique_id=103550549 instance=ExtResource("11_pq64c")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.477344, 0, -2.104495)
 
 [editable path="Latarka"]
 [editable path="Node3D4"]
