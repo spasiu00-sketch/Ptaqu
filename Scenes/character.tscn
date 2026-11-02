@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/character_body_3d.gd" id="1_glpr6"]
 [ext_resource type="AudioStream" uid="uid://cvdk3rorigxdy" path="res://Sounds/serce.mp3" id="3_le1tg"]
-[ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/spot_light_3d.gd" id="3_wa5vi"]
+[ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/flashlight.gd" id="3_wa5vi"]
 [ext_resource type="AudioStream" uid="uid://dexclg5as7mje" path="res://Sounds/hasin2004-breathing-fast-247449.mp3" id="4_2daya"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Latarka/Untitled_test animacji.glb" id="4_px5sl"]
 [ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]

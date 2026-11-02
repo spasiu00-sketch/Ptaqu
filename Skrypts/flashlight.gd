@@ -3,50 +3,43 @@ extends SpotLight3D
 
 @export var starts_unlocked: bool = false
 @export var max_battery: float = 100.0
-@export var start_battery_percent: float = 100.0   # do testów: np. 15, żeby od razu migotała
+@export var start_battery_percent: float = 100.0
 @export var drain_per_second: float = 0.5
 @export var base_energy: float = 3.0
-@export var flicker_below: float = 20.0            # poniżej tego % zaczyna migotać
-@export var hold_time: float = 3.0                 # ile sekund trzymać F, żeby przeładować
+@export var flicker_below: float = 20.0
+@export var hold_time: float = 3.0
 
-# Nazwa pokazywana po wyjęciu latarki z ręki (reka_przedmiotow.gd)
-@export var nazwa_przedmiotu: String = "Latarka"
-
-# Przedmiot "Bateria" zużywany przy przeładowaniu.
-# Puste = latarka szuka w ekwipunku przedmiotu o nazwie z pola 'Battery Name'.
 @export var battery_item: Item
 @export var battery_name: String = "Bateria"
 
-# Węzeł zawierający model i AnimationPlayery. Puste = znajdzie sam (idzie w górę drzewa).
-# Przy systemie "Reka" lepiej wskazać tu model latarki (Untitled_test animacji) ręcznie.
 @export var model_root: Node3D
 
-# Animacje przeładowania, odtwarzane NARAZ (spacje na początku nazw są ignorowane)
 @export var reload_animations: Array[StringName] = [&"BateriaAction", &"CylinderAction", &"Cylinder_001Action"]
 @export var debug_animations: bool = false
 @export var debug_input: bool = false
-@export var debug_reload: bool = true              # wypisuje w Output, dlaczego przeładowanie ruszyło albo nie
+@export var debug_reload: bool = true
 
 @export_group("Dźwięki")
-@export var reload_sound: AudioStream              # dźwięk wymiany baterii
-@export var reload_sound_delay: float = 0.0        # opóźnienie startu dźwięku względem animacji (s)
-@export var wait_for_sound: bool = true            # czy latarka czeka z zapaleniem na koniec dźwięku
-@export var toggle_sound: AudioStream              # klik włączania/wyłączania
-@export var flicker_start_sound: AudioStream       # gdy bateria zaczyna migotać
-@export var dead_sound: AudioStream                # gdy bateria padnie
-@export var no_battery_sound: AudioStream          # próba przeładowania bez baterii w ekwipunku
+@export var reload_sound: AudioStream
+@export var reload_sound_delay: float = 0.0
+@export var wait_for_sound: bool = true
+@export var toggle_sound: AudioStream
+@export var flicker_start_sound: AudioStream
+@export var dead_sound: AudioStream
+@export var no_battery_sound: AudioStream
 @export var sound_volume_db: float = 0.0
 
 const PLAYER_PREFIX := "FlashlightAnim_"
-const GRUPA_REKI := "reka_przedmiotow"
 
 var battery: float
 var unlocked: bool = false
 var is_on: bool = false
 var is_busy: bool = false
-var equipped: bool = true          # false = latarka schowana (w ręku jest inny przedmiot albo nic)
-var _wracac_swiatlo: bool = false  # czy po wyjęciu z kieszeni ma się od razu zapalić
-var _players: Array = []   # AnimationPlayer lub null, kolejność jak w reload_animations
+
+var dim_factor: float = 1.0
+
+var _gracz: Node = null
+var _players: Array = []
 var _flicker_timer: float = 0.0
 var _flicker_sound_played: bool = false
 
@@ -54,7 +47,7 @@ var _f_down: bool = false
 var _f_time: float = 0.0
 var _f_handled: bool = false
 
-var _rest_pose: Dictionary = {}   # Node3D -> {"t": Transform3D, "v": bool}
+var _rest_pose: Dictionary = {}
 
 var _sfx_reload: AudioStreamPlayer
 var _sfx_toggle: AudioStreamPlayer
@@ -64,10 +57,14 @@ var _sfx_alert: AudioStreamPlayer
 func _ready() -> void:
 	battery = max_battery * clampf(start_battery_percent, 0.0, 100.0) / 100.0
 	shadow_enabled = true
-	visible = true   # NIE ruszamy visible: ukrywaniem zajmuje się reka_przedmiotow.gd
+	visible = true
 	unlocked = starts_unlocked
 
-	# osobne odtwarzacze, żeby dźwięki nie ucinały się nawzajem
+	var n := get_parent()
+	while n != null and not (n is CharacterBody3D):
+		n = n.get_parent()
+	_gracz = n
+
 	_sfx_reload = _make_sfx()
 	_sfx_toggle = _make_sfx()
 	_sfx_alert = _make_sfx()
@@ -102,39 +99,13 @@ func _ensure_key_action(action: String, key: Key) -> void:
 		InputMap.action_add_event(action, ev)
 
 
-# ---------- Interfejs dla reka_przedmiotow.gd ----------
+# ---------- Sprawdzanie wyposażenia ----------
 
-# Latarka jest "w kieszeni" dopiero po podniesieniu z ziemi
-func czy_dostepny() -> bool:
-	return unlocked
-
-
-# Wzięta do ręki: jeśli świeciła przed schowaniem, zapala się z powrotem
-func equip() -> void:
-	equipped = true
-	if _wracac_swiatlo and battery > 0.0:
-		_set_light(true)
-	_wracac_swiatlo = false
+func _latarka_wyposazona() -> bool:
+	return is_visible_in_tree()
 
 
-# Schowana: gaśnie, nie zużywa baterii i nie reaguje na F
-func unequip() -> void:
-	if not equipped:
-		return
-	equipped = false
-	_f_down = false
-	_f_handled = false
-	_f_time = 0.0
-	_wracac_swiatlo = is_on
-	_set_light(false)
-
-
-# Nie wolno chować latarki w trakcie wymiany baterii
-func mozna_schowac() -> bool:
-	return not is_busy
-
-
-# ---------- Model: pozycje spoczynkowe i cienie ----------
+# ---------- Model ----------
 
 func _setup_model() -> void:
 	if model_root == null:
@@ -145,7 +116,6 @@ func _setup_model() -> void:
 	_build_players()
 
 
-# Idzie w górę drzewa od tego węzła, aż trafi na węzeł z oryginalnym AnimationPlayerem
 func _find_model_root() -> Node3D:
 	var node: Node = self
 	while node != null:
@@ -171,7 +141,6 @@ func _save_rest_pose(node: Node) -> void:
 		if child is Node3D:
 			_rest_pose[child] = {"t": child.transform, "v": child.visible}
 		if child is GeometryInstance3D:
-			# model nie może zasłaniać własnego światła
 			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_save_rest_pose(child)
 
@@ -185,7 +154,6 @@ func _restore_rest_pose() -> void:
 
 # ---------- Animacje ----------
 
-# Zbiera oryginalne playery (pomija te utworzone przez ten skrypt)
 func _collect_players(node: Node, out: Array) -> void:
 	for child in node.get_children():
 		if child is AnimationPlayer and not String(child.name).begins_with(PLAYER_PREFIX):
@@ -198,14 +166,12 @@ func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
 	_collect_players(model_root, players)
 	var wanted := String(anim_name).strip_edges().to_lower()
 
-	# 1) dokładna nazwa (ignoruje spacje na początku/końcu)
 	for p: AnimationPlayer in players:
 		for full in p.get_animation_list():
 			var f := String(full).strip_edges().to_lower()
 			if f == wanted or f.ends_with("/" + wanted):
 				return {"player": p, "key": full}
 
-	# 2) przybliżona nazwa (bez końcówki "action"), pomija już użyte animacje
 	var stripped := wanted.trim_suffix("action")
 	for p: AnimationPlayer in players:
 		for full in p.get_animation_list():
@@ -280,7 +246,6 @@ func _values_equal(a: Variant, b: Variant) -> bool:
 	return a == b
 
 
-# true, jeśli track ma stałą wartość (nic nie animuje)
 func _is_constant_track(anim: Animation, i: int) -> bool:
 	var t := anim.track_get_type(i)
 	if t != Animation.TYPE_POSITION_3D and t != Animation.TYPE_ROTATION_3D \
@@ -296,7 +261,6 @@ func _is_constant_track(anim: Animation, i: int) -> bool:
 	return true
 
 
-# Szuka węzła po nazwie, ignorując spacje na początku/końcu nazwy
 func _find_node_loose(root: Node, wanted: String) -> Node:
 	var w := wanted.strip_edges()
 	var direct := root.find_child(wanted, true, false)
@@ -312,7 +276,6 @@ func _find_node_loose(root: Node, wanted: String) -> Node:
 	return null
 
 
-# Naprawia ścieżki, usuwa tracki stałe i tracki światła, robi pozycje względnymi
 func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> void:
 	for i in range(anim.get_track_count() - 1, -1, -1):
 		var path := anim.track_get_path(i)
@@ -336,14 +299,12 @@ func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> voi
 				new_path += ":" + subnames
 			anim.track_set_path(i, NodePath(new_path))
 
-		# track rusza samo światło -> usuwamy
 		if node == self or subnames.begins_with("light_energy"):
 			if debug_animations:
 				print("[", anim_name, "] USUNIĘTO track światła: ", path)
 			anim.remove_track(i)
 			continue
 
-		# track stały (nic nie animuje) -> usuwamy, żeby nie nadpisywał innych animacji
 		if _is_constant_track(anim, i):
 			if debug_animations:
 				print("[", anim_name, "] USUNIĘTO track stały: ", path)
@@ -353,7 +314,6 @@ func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> voi
 		if debug_animations:
 			print("[", anim_name, "] zostaje track ", i, ": ", anim.track_get_path(i), " typ ", anim.track_get_type(i))
 
-		# animacja pozycji względna: start = pozycja modelu w scenie
 		if node is Node3D:
 			var t := anim.track_get_type(i)
 			var is_pos := t == Animation.TYPE_POSITION_3D \
@@ -366,8 +326,6 @@ func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> voi
 					anim.track_set_key_value(i, k, v + offset)
 
 
-# Odpala wszystkie animacje naraz razem z dźwiękiem, czeka na najdłuższą,
-# przywraca pozycje modelu i (opcjonalnie) dogrywa resztę dźwięku
 func _play_all() -> void:
 	var longest := 0.0
 	for i in _players.size():
@@ -381,7 +339,6 @@ func _play_all() -> void:
 		if debug_animations:
 			print("GRA: ", n, " (", p.get_animation(n).length, " s)")
 
-	# dźwięk startuje równolegle z animacjami (+ ewentualne opóźnienie)
 	var sound_len := 0.0
 	if reload_sound != null:
 		sound_len = reload_sound_delay + reload_sound.get_length()
@@ -396,9 +353,8 @@ func _play_all() -> void:
 			p.clear_caches()
 	_restore_rest_pose()
 	await get_tree().process_frame
-	_restore_rest_pose()   # drugi raz, gdyby player jeszcze coś nadpisał
+	_restore_rest_pose()
 
-	# dźwięk dłuższy niż animacje: czekamy do jego końca
 	if wait_for_sound:
 		var remaining := sound_len - longest - 0.05
 		if remaining > 0.0:
@@ -407,25 +363,35 @@ func _play_all() -> void:
 
 # ---------- Światło ----------
 
-# Gasi/zapala TYLKO światło (energia). Model zostaje widoczny.
+func _energia() -> float:
+	return base_energy * dim_factor
+
+
 func _set_light(state: bool) -> void:
 	is_on = state
-	light_energy = base_energy if state else 0.0
+	light_energy = _energia() if state else 0.0
 	if debug_input:
 		print("światło: ", state, " | energia: ", light_energy, " | bateria: ", snappedf(battery, 0.1))
 
 
-# Wywoływane z player.gd po podniesieniu latarki z ziemi
 func pick_up() -> void:
 	unlocked = true
-	if battery > 0.0:
-		if equipped:
-			_set_light(true)
-		else:
-			_wracac_swiatlo = true   # zaświeci się, gdy latarka trafi do ręki
+	if battery > 0.0 and _latarka_wyposazona():
+		_set_light(true)
+
+
+func zabierz() -> void:
+	unlocked = false
+	_f_down = false
+	_f_handled = false
+	_f_time = 0.0
+	_set_light(false)
 
 
 func _toggle_light() -> void:
+	if not unlocked or not _latarka_wyposazona():
+		return
+
 	if is_on:
 		_set_light(false)
 		_play_sfx(_sfx_toggle, toggle_sound)
@@ -434,10 +400,16 @@ func _toggle_light() -> void:
 		_play_sfx(_sfx_toggle, toggle_sound)
 
 
-# ---------- Wejście: tap F = przełącz, przytrzymanie F = przeładuj ----------
+# ---------- Wejście ----------
+
+func _wejscie_zablokowane() -> bool:
+	if _gracz == null or not _gracz.has_method("moze_sterowac"):
+		return false
+	return not _gracz.call("moze_sterowac")
+
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not unlocked or is_busy or not equipped:
+	if not unlocked or not _latarka_wyposazona() or is_busy or _wejscie_zablokowane():
 		return
 
 	if event.is_action_pressed("flashlight") and not event.is_echo():
@@ -447,22 +419,33 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	elif event.is_action_released("flashlight"):
 		if _f_down and not _f_handled:
-			_toggle_light()   # krótkie wciśnięcie
+			_toggle_light()
 		_f_down = false
 		_f_handled = false
 
 
 func _process(delta: float) -> void:
-	# schowana latarka nie zużywa baterii i nie mierzy przytrzymania F
-	if not equipped:
+	# Schowana latarka nie działa i nie zużywa baterii.
+	if not _latarka_wyposazona():
+		_f_down = false
+		_f_handled = false
+		_f_time = 0.0
+
+		if is_on:
+			_set_light(false)
+
 		return
 
-	# Mierzenie przytrzymania F
+	if _f_down and _wejscie_zablokowane():
+		_f_down = false
+		_f_handled = false
+		_f_time = 0.0
+
 	if _f_down and not _f_handled and not is_busy:
 		_f_time += delta
 		if _f_time >= hold_time:
 			_f_handled = true
-			_try_reload()
+			probuj_przeladowac()
 
 	if not is_on or is_busy:
 		return
@@ -471,20 +454,19 @@ func _process(delta: float) -> void:
 
 	if battery <= 0.0:
 		_set_light(false)
-		_play_sfx(_sfx_alert, dead_sound)           # bateria padła
+		_play_sfx(_sfx_alert, dead_sound)
 		return
 
 	var percent := battery / max_battery * 100.0
 	if percent < flicker_below:
-		if not _flicker_sound_played:               # raz, na początku migotania
+		if not _flicker_sound_played:
 			_flicker_sound_played = true
 			_play_sfx(_sfx_alert, flicker_start_sound)
 		_flicker(delta, 1.0 - percent / flicker_below)
 	else:
-		light_energy = base_energy
+		light_energy = _energia()
 
 
-# strength: 0 (tuż poniżej progu) ... 1 (bateria na wyczerpaniu)
 func _flicker(delta: float, strength: float) -> void:
 	_flicker_timer -= delta
 	if _flicker_timer > 0.0:
@@ -495,52 +477,59 @@ func _flicker(delta: float, strength: float) -> void:
 	if randf() < 0.15 + strength * 0.45:
 		light_energy = 0.0
 	else:
-		light_energy = base_energy * randf_range(0.25, 1.0)
+		light_energy = _energia() * randf_range(0.25, 1.0)
 
 
-# ---------- Przeładowanie: wymaga baterii w ekwipunku (poziom baterii latarki nie ma znaczenia) ----------
+# ---------- Przeładowanie ----------
 
 func _dbg(tekst: String) -> void:
-	if debug_reload:
+	if debug_reload and OS.is_debug_build():
 		print("[latarka] ", tekst)
 
 
-# Zwraca przedmiot-baterię: najpierw z pola 'Battery Item', a jeśli puste,
-# szuka w ekwipunku przedmiotu o nazwie 'Battery Name'
+func jest_bateria(item: Item) -> bool:
+	if item == null:
+		return false
+	if battery_item != null:
+		if item == battery_item:
+			return true
+		if item.resource_path != "" and item.resource_path == battery_item.resource_path:
+			return true
+	var szukana := battery_name.strip_edges().to_lower()
+	return szukana != "" and item.nazwa.strip_edges().to_lower() == szukana
+
+
+func moze_przeladowac() -> bool:
+	return unlocked and _latarka_wyposazona() and not is_busy and battery < max_battery - 0.01
+
+
 func _znajdz_baterie(inv: Node) -> Item:
 	if battery_item != null:
 		return battery_item
-	var szukana := battery_name.strip_edges().to_lower()
 	for slot in inv.sloty:
-		if slot != null and slot.item != null:
-			if String(slot.item.nazwa).strip_edges().to_lower() == szukana:
-				return slot.item
+		if slot != null and slot.item != null and jest_bateria(slot.item):
+			return slot.item
 	return null
 
 
-# Sprawdza, czy gracz ma baterię; jeśli tak, zabiera jedną i odpala animację wymiany.
-# Gdy latarka jest schowana (np. w ręku jest aparat), najpierw prosi rękę, żeby ją wyjęła.
-func _try_reload() -> void:
-	if not equipped:
-		var czekano := 0.0
-		while not equipped and czekano < 1.5:
-			get_tree().call_group(GRUPA_REKI, "wyposaz_obsluge", self)
-			await get_tree().process_frame
-			czekano += get_process_delta_time()
-		if not equipped:
-			print("[latarka] nie udało się wyjąć latarki z kieszeni, przeładowanie anulowane")
-			return
+func probuj_przeladowac() -> void:
+	_dbg("próba przeładowania (bateria latarki: %.1f / %.1f)" % [battery, max_battery])
 
-	print("[latarka] przytrzymano F, próba przeładowania (bateria latarki: %.1f / %.1f)" % [battery, max_battery])
+	if not unlocked or not _latarka_wyposazona() or is_busy:
+		return
+
+	if battery >= max_battery - 0.01:
+		_dbg("bateria latarki jest pełna, przeładowanie zbędne")
+		return
 
 	var inv := get_node_or_null("/root/Inventory")
 	if inv == null:
-		print("[latarka] BŁĄD: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload, nazwa dokładnie: Inventory)")
+		push_warning("Flashlight: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload, nazwa dokładnie: Inventory)")
 		return
 
 	var bateria := _znajdz_baterie(inv)
 	if bateria == null:
-		print("[latarka] w ekwipunku nie ma przedmiotu '%s' (Battery Item puste), przeładowanie zablokowane" % battery_name)
+		_dbg("w ekwipunku nie ma przedmiotu '%s', przeładowanie zablokowane" % battery_name)
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
@@ -548,19 +537,21 @@ func _try_reload() -> void:
 	_dbg("baterii w ekwipunku: %d" % ilosc)
 
 	if ilosc <= 0:
-		print("[latarka] brak baterii w ekwipunku, przeładowanie zablokowane")
+		_dbg("brak baterii w ekwipunku, przeładowanie zablokowane")
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
 	inv.usun_item(bateria, 1)
-	print("[latarka] zużyto 1 baterię, startuje animacja")
+	_dbg("zużyto 1 baterię, startuje animacja")
 	reload_flashlight()
 
 
-# Sama animacja + naładowanie (bez sprawdzania ekwipunku, np. do testów)
 func reload_flashlight() -> void:
+	if not unlocked or not _latarka_wyposazona() or is_busy:
+		return
+
 	is_busy = true
-	_set_light(false)   # światło gaśnie, model zostaje widoczny
+	_set_light(false)
 
 	await _play_all()
 
@@ -571,11 +562,13 @@ func reload_flashlight() -> void:
 	_f_time = 0.0
 
 	is_busy = false
-	_set_light(true)    # po animacji (i dźwięku) świeci ponownie
+
+	if _latarka_wyposazona() and unlocked and battery > 0.0:
+		_set_light(true)
 
 
 func charge_battery(amount: float) -> void:
 	battery = clampf(battery + amount, 0.0, max_battery)
-	# po naładowaniu powyżej progu dźwięk migotania może zagrać ponownie
+
 	if battery / max_battery * 100.0 >= flicker_below:
 		_flicker_sound_played = false

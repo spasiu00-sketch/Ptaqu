@@ -1,32 +1,22 @@
+class_name RekaPrzedmiotow
 extends Node3D
-# Ręka gracza: trzyma wiele przedmiotów (latarka, aparat, łyżka...), w ręku widać jeden.
-# Wisi na węźle "Reka" (dziecko Cofanie). Każde dziecko typu Node3D to jeden SLOT.
-# Slot jest "obsługiwany" przez pierwszy węzeł (sam slot albo jego potomek), który ma metodę
-# czy_dostepny(): Flashlight (spot_light_3d.gd) albo przedmiot_w_rece.gd.
-#
-# Interfejs przedmiotu (wszystko oprócz czy_dostepny / equip / unequip jest opcjonalne):
-#   czy_dostepny() -> bool     czy gracz w ogóle ma ten przedmiot
-#   equip() / unequip()        wzięty do ręki / schowany
-#   mozna_schowac() -> bool    false = np. trwa animacja przeładowania
-#   uzyj_glowny()              LPM
-#   nazwa_przedmiotu (String)  nazwa pokazywana po wyjęciu
 
-signal zmieniono_przedmiot(indeks: int)   # -1 = pusta ręka
+signal zmieniono_przedmiot(indeks: int)
 
 const GRUPA := "reka_przedmiotow"
 const KLAWISZE_SLOTOW := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
 
-@export var gracz: CharacterBody3D                  # puste = szuka w górę drzewa
-@export var wyposaz_nowy_automatycznie: bool = true # podniesiony przedmiot od razu ląduje w ręku
-@export var czas_zmiany: float = 0.14               # czas opuszczania / podnoszenia (s)
-@export var opuszczenie: float = 0.35               # o ile metrów w dół chowa się przedmiot
+@export var gracz: CharacterBody3D
+@export var wyposaz_nowy_automatycznie: bool = true
+@export var czas_zmiany: float = 0.14
+@export var opuszczenie: float = 0.35
 @export var kolko_myszy: bool = true
 @export var klawisz_chowania: Key = KEY_X
 @export var pokaz_nazwe: bool = true
 
 var _sloty: Array[Node3D] = []
-var _obslugi: Array = []            # węzeł obsługujący slot albo null
-var _poz: Array[Vector3] = []       # pozycja spoczynkowa slotu
+var _obslugi: Array = []
+var _poz: Array[Vector3] = []
 var _byl_dostepny: Array[bool] = []
 var _aktywny: int = -1
 var _w_zmianie: bool = false
@@ -80,8 +70,6 @@ func _znajdz_obsluge(wezel: Node) -> Node:
 	return null
 
 
-# ---------- Pomocnicze ----------
-
 func _dostepny(i: int) -> bool:
 	var o = _obslugi[i]
 	return o != null and bool(o.call("czy_dostepny"))
@@ -104,14 +92,11 @@ func _moze_sterowac() -> bool:
 	return true
 
 
-# Wołane przez przedmiot, który sam chce trafić do ręki (np. latarka przy przeładowaniu z ekwipunku)
 func wyposaz_obsluge(obsluga: Node) -> void:
 	var i := _obslugi.find(obsluga)
 	if i >= 0 and _dostepny(i):
 		_wybierz(i)
 
-
-# ---------- Zmiana przedmiotu ----------
 
 func _ukryj_slot(i: int) -> void:
 	var o = _obslugi[i]
@@ -138,7 +123,6 @@ func _animuj(wezel: Node3D, cel: Vector3) -> void:
 	await tw.finished
 
 
-# indeks -1 = schowaj wszystko
 func _wybierz(indeks: int) -> void:
 	if _w_zmianie or indeks == _aktywny:
 		return
@@ -164,7 +148,6 @@ func _wybierz(indeks: int) -> void:
 	zmieniono_przedmiot.emit(_aktywny)
 
 
-# Przedmiot zniknął (np. wyrzucony z ekwipunku): chowamy go bez animacji
 func _schowaj_natychmiast() -> void:
 	if _aktywny < 0:
 		return
@@ -192,8 +175,6 @@ func _przewin(kierunek: int) -> void:
 		_wybierz(nowy)
 
 
-# ---------- Pętla ----------
-
 func _process(_delta: float) -> void:
 	if not _w_zmianie:
 		for i in _sloty.size():
@@ -205,17 +186,14 @@ func _process(_delta: float) -> void:
 			elif not teraz and i == _aktywny:
 				_schowaj_natychmiast()
 
-	# Ręka sama decyduje o swojej widoczności (gracz ukrywał ją do podniesienia latarki)
 	var chce_widoczna := _aktywny >= 0 or _w_zmianie
 	if visible != chce_widoczna:
 		visible = chce_widoczna
 		if chce_widoczna and gracz != null:
-			gracz.set_process(true)   # gracz kołysze ręką tylko w swoim _process
+			gracz.set_process(true)
 
 	_tryb_myszy_poprzedni = Input.mouse_mode
 
-
-# ---------- Wejście ----------
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _moze_sterowac():
@@ -237,7 +215,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif kolko_myszy and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_przewin(1)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			# pierwsze kliknięcie po powrocie do gry tylko przechwytuje mysz
 			if _tryb_myszy_poprzedni != Input.MOUSE_MODE_CAPTURED:
 				return
 			if _aktywny >= 0 and not _w_zmianie:
@@ -246,8 +223,6 @@ func _unhandled_input(event: InputEvent) -> void:
 					o.call("uzyj_glowny")
 					get_viewport().set_input_as_handled()
 
-
-# ---------- Napis z nazwą przedmiotu ----------
 
 func _zbuduj_napis() -> void:
 	var warstwa := CanvasLayer.new()

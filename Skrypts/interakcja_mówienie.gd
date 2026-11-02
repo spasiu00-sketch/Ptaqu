@@ -1,29 +1,26 @@
+class_name ObiektDialogowy
 extends StaticBody3D
 
-@export var prompt_text: String = "Obejrzyj"   # pokaże się jako "[E] Obejrzyj"
+@export var prompt_text: String = "Obejrzyj"
 @export_multiline var tekst: String = "Wpisz tutaj tekst w Inspektorze."
 @export var czas_wyswietlania: float = 4.0
 @export var efekt_pisania: bool = true
-@export var czytaj_na_glos: bool = false   # synteza mowy systemu (TTS)
-@export var dzwiek: AudioStream            # opcjonalny dźwięk przy interakcji
+@export var czytaj_na_glos: bool = false
+@export var dzwiek: AudioStream
 @export var tylko_raz: bool = false
-@export var debug_czas: bool = false       # true = wypisuje w Output, ile ms trwa każdy etap
+@export var debug_czas: bool = false
 
 const GRUPA_NAPISU := "napis_dialogowy"
 const JEZYK_TTS := "pl"
 const GLOSNOSC_TTS := 50
-const PREDKOSC_PISANIA := 0.03   # sekundy na jeden znak
+const PREDKOSC_PISANIA := 0.03
 const ZNAKI_POLSKIE := "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ"
 
-# Wspólne dla wszystkich obiektów: głos TTS wybieramy i "rozgrzewamy" tylko raz,
-# przy starcie sceny, a nie w momencie naciśnięcia E.
 static var _glos_tts: String = ""
 static var _glos_gotowy: bool = false
 
-# Napis jest jeden na całą grę, więc jego animacja też musi być jedna:
-# tween i flaga "pisze" są wspólne (wcześniej każdy obiekt miał własne i walczyły o ten sam label).
 static var _tween: Tween
-static var _pisze: bool = false   # true, dopóki trwa efekt pisania tekstu
+static var _pisze: bool = false
 
 var _uzyty := false
 var _audio: AudioStreamPlayer3D
@@ -39,12 +36,9 @@ func _ready() -> void:
 		_przygotuj_glos.call_deferred()
 
 
-# Wywoływane przez gracza po naciśnięciu [E] (z argumentem lub bez)
 func interact(_gracz = null) -> void:
 	if tylko_raz and _uzyty:
 		return
-	# Ponowna interakcja w trakcie pisania / czytania przerywałaby TTS (ok. 200 ms laga),
-	# dlatego ignorujemy ją, aż poprzednia się skończy
 	if _zajety():
 		return
 	_uzyty = true
@@ -71,8 +65,6 @@ func _zmierz(nazwa: String, start: int) -> int:
 		print("[interakcja] %s: %.1f ms" % [nazwa, (Time.get_ticks_usec() - start) / 1000.0])
 	return Time.get_ticks_usec()
 
-
-# ---------- Napis ----------
 
 func _pobierz_label() -> Label:
 	var istniejacy := get_tree().get_first_node_in_group(GRUPA_NAPISU) as Label
@@ -104,8 +96,6 @@ func _stworz_label() -> Label:
 	return label
 
 
-# Tworzy etykietę z góry i rysuje na niej (niewidocznie) polskie znaki,
-# żeby czcionka wygenerowała glify przy starcie, a nie przy pierwszej interakcji
 func _rozgrzej_napis() -> void:
 	var label := _pobierz_label()
 	if label.text == "":
@@ -122,7 +112,6 @@ func _pokaz_napis(t: String) -> void:
 	label.text = t
 	label.modulate.a = 1.0
 
-	# tween na drzewie, a nie na tym obiekcie: nie ginie, gdy obiekt zniknie ze sceny (np. zostanie podniesiony)
 	_tween = get_tree().create_tween()
 	if efekt_pisania:
 		_pisze = true
@@ -136,9 +125,6 @@ func _pokaz_napis(t: String) -> void:
 	_tween.tween_property(label, "modulate:a", 0.0, 0.6)
 
 
-# ---------- Mowa (TTS) ----------
-
-# Wybiera głos i wypowiada ciszę (głośność 0), żeby silnik mowy uruchomił się przy starcie
 func _przygotuj_glos() -> void:
 	if _glos_gotowy:
 		return
@@ -152,7 +138,7 @@ func _przygotuj_glos() -> void:
 
 
 func _mow(t: String) -> void:
-	_przygotuj_glos()   # zabezpieczenie, gdyby _ready nie zdążyło
+	_przygotuj_glos()
 	if _glos_tts == "":
 		return
 	DisplayServer.tts_speak(t, _glos_tts, GLOSNOSC_TTS)

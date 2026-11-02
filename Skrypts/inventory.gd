@@ -4,7 +4,7 @@ extends Node
 signal zmieniono
 
 const ROZMIAR := 20
-var sloty: Array = []   # każdy slot: {"item": Item, "ilosc": int} albo null
+var sloty: Array[InventorySlot] = []   # każdy slot: InventorySlot albo null
 
 
 func _ready() -> void:
@@ -23,8 +23,8 @@ func reset() -> void:
 func przenies(z: int, do: int) -> void:
 	if z == do or z < 0 or z >= ROZMIAR or do < 0 or do >= ROZMIAR:
 		return
-	var a = sloty[z]
-	var b = sloty[do]
+	var a: InventorySlot = sloty[z]
+	var b: InventorySlot = sloty[do]
 	if a == null:
 		return
 
@@ -93,7 +93,7 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 			break
 		if sloty[i] == null:
 			var dodane: int = mini(na_slot, ilosc)
-			sloty[i] = {"item": item, "ilosc": dodane}
+			sloty[i] = InventorySlot.new(item, dodane)
 			ilosc -= dodane
 
 	zmieniono.emit()
@@ -103,7 +103,7 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 func usun(indeks: int, ilosc: int = 1) -> void:
 	if indeks < 0 or indeks >= ROZMIAR:
 		return
-	var slot = sloty[indeks]
+	var slot: InventorySlot = sloty[indeks]
 	if slot == null:
 		return
 	slot.ilosc -= ilosc
@@ -120,7 +120,7 @@ func usun_item(item: Item, ilosc: int = 1) -> bool:
 	for i in range(ROZMIAR - 1, -1, -1):
 		if ilosc <= 0:
 			break
-		var slot = sloty[i]
+		var slot: InventorySlot = sloty[i]
 		if slot != null and _to_samo(slot.item, item):
 			var zabrane: int = mini(slot.ilosc, ilosc)
 			usun(i, zabrane)

@@ -1,37 +1,31 @@
+class_name Gracz
 extends CharacterBody3D
-
-# ---------- Sygnały ----------
 
 signal health_changed(current: float, maximum: float)
 signal died
-
-# ---------- Stałe ----------
 
 const SPEED := 4.0
 const SPRINT_SPEED := 7.0
 const JUMP_VELOCITY := 4.5
 const MOUSE_SENS := 0.002
 const MAX_LOOK_ANGLE := deg_to_rad(89)
-const MIN_MOVE_SPEED := 0.5          # poniżej tej prędkości gracz "stoi"
+const MIN_MOVE_SPEED := 0.5
 const BOB_SPEED_FACTOR := 1.6
 const IDLE_BREATH_AMOUNT := 0.002
-const IDLE_BREATH_SPEED := 1.5       # rad/s
-const CAPSULE_MIN_MARGIN := 0.01     # kapsuła nie może być niższa niż 2 * promień
+const IDLE_BREATH_SPEED := 1.5
+const CAPSULE_MIN_MARGIN := 0.01
 
-# head bob (kołysanie kamery przy chodzeniu)
-const BOB_FREQ := 2.4                # szybkość kołysania
-const BOB_AMP_Y := 0.04              # góra-dół (małe)
-const BOB_AMP_X := 0.05              # na boki
-const BOB_ROLL := 0.025              # przechył kamery (w radianach)
-const BOB_SMOOTH := 10.0             # płynność włączania/wyłączania efektu
-const BOB_SPRINT_AMP := 1.6          # mnożnik siły kołysania przy sprincie
-const BOB_SPRINT_ROLL := 1.8         # mnożnik przechyłu przy sprincie
-const BOB_CROUCH_AMP := 0.5          # mnożnik siły kołysania w kucki
+const BOB_FREQ := 2.4
+const BOB_AMP_Y := 0.04
+const BOB_AMP_X := 0.05
+const BOB_ROLL := 0.025
+const BOB_SMOOTH := 10.0
+const BOB_SPRINT_AMP := 1.6
+const BOB_SPRINT_ROLL := 1.8
+const BOB_CROUCH_AMP := 0.5
 
-# dźwięki sprintu (sapanie, serce)
-const SOUND_SILENT_DB := -60.0       # tyle uznajemy za ciszę przy wyciszaniu / wzmacnianiu
+const SOUND_SILENT_DB := -60.0
 
-# animacje bohatera: klucz -> nazwa pliku .res w folderze animacji
 const HERO_ANIMS := {
 	"idle": "Hero_idle",
 	"walk": "Hero_walking",
@@ -43,7 +37,6 @@ const HERO_ANIMS := {
 const HERO_ANIMS_LOOPED := ["idle", "walk", "crouch_idle", "crouch_walk"]
 const HERO_LIB := "hero"
 
-# rozmazanie ekranu przy zmęczeniu (shader czyta obraz ekranu i rozmywa go mipmapami)
 const FATIGUE_BLUR_SHADER := """
 shader_type canvas_item;
 uniform sampler2D ekran : hint_screen_texture, filter_linear_mipmap;
@@ -60,9 +53,7 @@ void fragment() {
 }
 """
 
-# preload zamiast class_name: działa nawet, gdy Godot nie odświeżył listy klas
 const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
-const GlitchScript := preload("res://Skrypts/glitch_kamery.gd")
 const HealthOverlayScript := preload("res://Skrypts/zdrowie_ekran.gd")
 const OczyScript := preload("res://Skrypts/oczy_zjawa.gd")
 
@@ -78,186 +69,169 @@ const INPUT_KEYS := {
 	"inventory": KEY_TAB,
 }
 
-# ---------- Ustawienia w Inspektorze ----------
-
 @export_group("Ruch")
-@export var acceleration: float = 60.0    # m/s² przy rozpędzaniu (duża wartość = natychmiastowy start)
-@export var deceleration: float = 80.0    # m/s² przy hamowaniu
+@export var acceleration: float = 60.0
+@export var deceleration: float = 80.0
 
 @export_group("Wytrzymałość")
 @export var stamina_enabled: bool = true
-@export var sprint_duration: float = 8.0               # ile sekund ciągłego sprintu do pełnego wyczerpania
-@export var stamina_regen_time: float = 12.0           # ile sekund odpoczynku do pełnej wytrzymałości
-@export_range(0.05, 1.0, 0.05) var stamina_recover_threshold: float = 0.35   # po wyczerpaniu sprint wraca dopiero po tym poziomie
-@export_range(1.0, 6.0, 0.5) var fatigue_effect_power: float = 3.0           # im więcej, tym później (bliżej limitu) wchodzą kołysanie i rozmazanie
-@export var fatigue_sway_amount: float = 0.05          # kołysanie kamery na boki / góra-dół (przesunięcie)
-@export var fatigue_roll_amount: float = 0.06          # przechył kamery (radiany)
-@export_range(0.0, 1.0, 0.05) var fatigue_blur_amount: float = 1.0           # siła rozmazania ekranu
-@export var exhausted_rest_time: float = 5.0           # po wyczerpaniu wytrzymałości postać staje i łapie oddech tyle sekund (0 = wyłączone)
+@export var sprint_duration: float = 8.0
+@export var stamina_regen_time: float = 12.0
+@export_range(0.05, 1.0, 0.05) var stamina_recover_threshold: float = 0.35
+@export_range(1.0, 6.0, 0.5) var fatigue_effect_power: float = 3.0
+@export var fatigue_sway_amount: float = 0.05
+@export var fatigue_roll_amount: float = 0.06
+@export_range(0.0, 1.0, 0.05) var fatigue_blur_amount: float = 1.0
+@export var exhausted_rest_time: float = 5.0
 
 @export_group("Życie")
 @export var max_health: float = 100.0
-@export var regen_enabled: bool = true                 # true = życie samo wraca (jak w CoD)
-@export var regen_delay: float = 8.0                   # ile sekund bez obrażeń, zanim życie zacznie wracać
-@export var regen_speed: float = 1.5                   # punktów życia na sekundę (1.5 = pełne życie w ok. minutę)
-@export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0   # poniżej tego % życia ekran zaczyna ciemnieć
-@export var restart_on_death: bool = true              # po śmierci wczytaj scenę od nowa
-@export var death_delay: float = 3.0                   # ile sekund po śmierci do restartu
-@export var debug_health_keys: bool = true             # F3 = -10 życia, F4 = +10 życia (do testów, wyłącz w wersji końcowej)
+@export var regen_enabled: bool = true
+@export var regen_delay: float = 8.0
+@export var regen_speed: float = 1.5
+@export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0
+@export var restart_on_death: bool = false
+@export var death_delay: float = 3.0
+@export var debug_health_keys: bool = true
 
 @export_group("Życie - oddech i kaszel")
-@export var low_health_breath_sound: AudioStream       # ciężki oddech, gra w kółko; im mniej życia, tym głośniej i szybciej
-@export var low_health_breath_min_db: float = -35.0    # głośność tuż po przekroczeniu progu (ledwo słyszalny)
-@export var low_health_breath_max_db: float = 0.0      # głośność przy prawie zerowym życiu
-@export var low_health_breath_pitch_min: float = 0.9   # wysokość dźwięku na początku
-@export var low_health_breath_pitch_max: float = 1.15  # wysokość dźwięku przy bardzo niskim życiu
-@export var health_audio_smooth: float = 1.5           # płynność zmiany głośności (mniej = wolniej)
-@export var cough_sounds: Array[AudioStream] = []      # dźwięki kaszlu / krztuszenia (losowe, opcjonalne)
-@export_range(0.0, 1.0, 0.05) var cough_start_intensity: float = 0.4   # od jakiego stopnia osłabienia zaczyna się kaszel
-@export var cough_interval_max: float = 10.0           # średnia przerwa między kaszlnięciami na początku (s)
-@export var cough_interval_min: float = 3.0            # średnia przerwa przy bardzo niskim życiu (s)
+@export var low_health_breath_sound: AudioStream
+@export var low_health_breath_min_db: float = -35.0
+@export var low_health_breath_max_db: float = 0.0
+@export var low_health_breath_pitch_min: float = 0.9
+@export var low_health_breath_pitch_max: float = 1.15
+@export var health_audio_smooth: float = 1.5
+@export var cough_sounds: Array[AudioStream] = []
+@export_range(0.0, 1.0, 0.05) var cough_start_intensity: float = 0.4
+@export var cough_interval_max: float = 10.0
+@export var cough_interval_min: float = 3.0
 @export var cough_volume_db: float = -3.0
 
 @export_group("Kucanie")
-@export var crouch_toggle: bool = false                 # false = kucasz, dopóki trzymasz klawisz; true = przełączanie
-@export var crouch_speed: float = 2.0                   # prędkość chodzenia w kucki
-@export_range(0.3, 0.9, 0.01) var crouch_height_ratio: float = 0.6   # wysokość kolizji w kucki (ułamek normalnej)
-@export var crouch_transition_speed: float = 10.0       # płynność opuszczania/podnoszenia kamery
-@export var crouch_footstep_db: float = -8.0            # o ile ciszej brzmią kroki w kucki
+@export var crouch_toggle: bool = false
+@export var crouch_speed: float = 2.0
+@export_range(0.3, 0.9, 0.01) var crouch_height_ratio: float = 0.6
+@export var crouch_transition_speed: float = 10.0
+@export var crouch_footstep_db: float = -8.0
 
 @export_group("Kroki")
-@export var footstep_sounds: Array[AudioStream] = []   # przeciągnij tu pliki dźwięków kroków
-@export var step_distance: float = 2.0                 # co ile metrów jeden krok
+@export var footstep_sounds: Array[AudioStream] = []
+@export var step_distance: float = 2.0
 @export var footstep_volume_db: float = 0.0
-@export var debug_footsteps: bool = false              # true = wypisuje "krok" w Output
+@export var debug_footsteps: bool = false
 
 @export_group("Sprint - sapanie")
-@export var breath_sound: AudioStream                  # dźwięk sapania (gra w kółko podczas sprintu)
-@export var breath_volume_db: float = -4.0             # głośność sapania przy pełnym zmęczeniu (maksimum)
-@export var breath_min_volume_db: float = -46.0        # głośność sapania na początku sprintu (przy pełnej wytrzymałości, ledwo słyszalne)
-@export var breath_pitch_min: float = 0.9              # wysokość dźwięku przy pełnej wytrzymałości
-@export var breath_pitch_max: float = 1.3              # wysokość (i tempo) dźwięku przy pełnym zmęczeniu
-@export var breath_start_delay: float = 0.0            # ile sekund sprintu, zanim zacznie sapać
-@export var breath_recovery_time: float = 4.0          # ile sekund sapie po przestaniu biegu (minimum)
+@export var breath_sound: AudioStream
+@export var breath_volume_db: float = -4.0
+@export var breath_min_volume_db: float = -46.0
+@export var breath_pitch_min: float = 0.9
+@export var breath_pitch_max: float = 1.3
+@export var breath_start_delay: float = 0.0
+@export var breath_recovery_time: float = 4.0
 
 @export_group("Sprint - bicie serca")
-@export var heartbeat_sound: AudioStream               # dźwięk bicia serca (gra w kółko podczas sprintu)
-@export var heartbeat_volume_db: float = -2.0         # głośność serca przy pełnym zmęczeniu (maksimum)
-@export var heartbeat_min_volume_db: float = -40.0     # głośność serca na początku sprintu (przy pełnej wytrzymałości)
-@export var heartbeat_pitch_min: float = 0.85          # wysokość (i tempo) bicia przy pełnej wytrzymałości
-@export var heartbeat_pitch_max: float = 1.3           # wysokość (i tempo) bicia przy pełnym zmęczeniu
-@export var heartbeat_start_delay: float = 0.0         # ile sekund sprintu, zanim serce zacznie bić
-@export var heartbeat_recovery_time: float = 6.0       # ile sekund bije po przestaniu biegu
+@export var heartbeat_sound: AudioStream
+@export var heartbeat_volume_db: float = -2.0
+@export var heartbeat_min_volume_db: float = -40.0
+@export var heartbeat_pitch_min: float = 0.85
+@export var heartbeat_pitch_max: float = 1.3
+@export var heartbeat_start_delay: float = 0.0
+@export var heartbeat_recovery_time: float = 6.0
 
 @export_group("Sprint - dźwięk ogólne")
-@export var sound_fade_time: float = 0.5               # czas płynnego włączania / wyciszania dźwięków
-@export var debug_sprint_audio: bool = false           # true = wypisuje w Output, kiedy dźwięki startują
+@export var sound_fade_time: float = 0.5
+@export var debug_sprint_audio: bool = false
 
 @export_group("Latarka w ręku")
-@export var bob_amount: float = 0.012     # siła kołysania przy chodzeniu
-@export var sway_amount: float = 0.0015   # siła opóźnienia przy obracaniu myszką
-@export var sway_max: float = 0.12        # maksymalny wychył (radiany)
-@export var sway_smooth: float = 10.0     # im większe, tym szybciej latarka "dogania" kamerę
-@export var start_with_flashlight: bool = false   # false = gracz dostaje latarkę dopiero po podniesieniu
-@export var held_root_name: String = "Cofanie"                   # węzeł ukrywany do czasu podniesienia latarki
-@export var held_model_name: String = "Untitled_test animacji"   # model, który kołysze się przy chodzeniu
+@export var bob_amount: float = 0.012
+@export var sway_amount: float = 0.0015
+@export var sway_max: float = 0.12
+@export var sway_smooth: float = 10.0
+@export var start_with_flashlight: bool = false
+@export var held_root_name: String = "Cofanie"
+@export var held_model_name: String = "Untitled_test animacji"
 
 @export_group("Animacje postaci")
-@export var anim_player: AnimationPlayer                 # puste = szuka węzła "AnimationPlayer2"
-@export var anim_folder: String = "res://animations/"    # folder z plikami Hero_*.res
-@export var anim_blend: float = 0.2                      # płynność przejść między animacjami (s)
-@export var sprint_anim_speed: float = 1.4               # przyspieszenie animacji chodu przy sprincie
-@export var anim_transition_speed: float = 1.0           # tempo animacji kucanie <-> wstawanie
-@export var anim_spam_speed: float = 3.0                 # mnożnik tempa, gdy C wciśnięte w trakcie trwającej animacji
-@export var debug_animations: bool = false               # true = wypisuje w Output zmiany animacji
+@export var anim_player: AnimationPlayer
+@export var anim_folder: String = "res://animations/"
+@export var anim_blend: float = 0.2
+@export var sprint_anim_speed: float = 1.4
+@export var anim_transition_speed: float = 1.0
+@export var anim_spam_speed: float = 3.0
+@export var debug_animations: bool = false
 
 @export_group("Skok")
-@export_range(0.0, 1.0, 0.05) var jump_launch_ratio: float = 1.0   # w którym momencie animacji Hero_jump postać się odbija (1.0 = dopiero po jej zakończeniu)
-@export var jump_blocks_movement: bool = true          # true = w trakcie animacji przed odbiciem postać stoi w miejscu
-
-@export_group("Efekty")
-@export var glitch_wlaczony: bool = true   # losowy glitch obrazu (glitch_kamery.gd)
+@export_range(0.0, 1.0, 0.05) var jump_launch_ratio: float = 1.0
+@export var jump_blocks_movement: bool = true
 
 @export_group("Czerwone oczy")
-@export var oczy_wlaczone: bool = true     # losowe zdarzenie z oczami (oczy_zjawa.gd)
-@export var oczy_min_przerwa: float = 25.0 # minimalny czas między zdarzeniami (s)
-@export var oczy_max_przerwa: float = 70.0 # maksymalny czas między zdarzeniami (s)
-@export var oczy_klawisz_testowy: Key = KEY_F5   # F3 / F4 zajęte przez testy życia
-
-# ---------- Stan ----------
+@export var oczy_wlaczone: bool = true
+@export var oczy_min_przerwa: float = 25.0
+@export var oczy_max_przerwa: float = 70.0
+@export var oczy_klawisz_testowy: Key = KEY_F5
 
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var camera: Camera3D = $Camera3D
 
-var footstep_player = null          # AudioStreamPlayer lub AudioStreamPlayer3D
+var footstep_player = null
 var breath_player: AudioStreamPlayer = null
 var heart_player: AudioStreamPlayer = null
 var interact_ray: RayCast3D = null
 var flashlight: Flashlight = null
-var held_flashlight: Node3D = null  # węzeł kołysany przy chodzeniu (model latarki)
-var held_root: Node3D = null        # węzeł ukrywany/pokazywany (Cofanie)
+var held_flashlight: Node3D = null
+var held_root: Node3D = null
 var prompt_label: Label
-var inventory_ui = null            # instancja inventory_ui.gd
-var glitch = null                  # instancja glitch_kamery.gd
-var oczy = null                    # instancja oczy_zjawa.gd
+var inventory_ui = null
+var oczy = null
 
-# true = zdarzenie (np. czerwone oczy) przejęło kamerę: blokuje myszkę i ruch gracza
 var kontrola_zablokowana: bool = false
 
-# życie
 var health: float = 100.0
-var health_overlay = null          # instancja zdrowie_ekran.gd
-var _since_damage: float = 0.0     # ile sekund minęło od ostatnich obrażeń
+var health_overlay = null
+var _since_damage: float = 0.0
 var _dead: bool = false
-var low_breath_player: AudioStreamPlayer = null   # oddech przy niskim życiu
+var low_breath_player: AudioStreamPlayer = null
 var cough_player: AudioStreamPlayer = null
-var _health_audio_level: float = 0.0   # wygładzone natężenie osłabienia (0..1) dla dźwięku
+var _health_audio_level: float = 0.0
 var _cough_timer: float = -1.0
 
-# wytrzymałość
-var stamina: float = 1.0            # 1.0 = pełna, 0.0 = wyczerpany
-var _exhausted: bool = false        # true = nie można sprintować, dopóki wytrzymałość nie wróci do progu
-var _rest_left: float = 0.0         # ile jeszcze sekund postać musi stać i łapać oddech
-var _fatigue: float = 0.0           # 1.0 - stamina (0 = wypoczęty, 1 = na limicie)
-var _fatigue_time: float = 0.0      # czas do kołysania kamery przy zmęczeniu
+var stamina: float = 1.0
+var _exhausted: bool = false
+var _rest_left: float = 0.0
+var _fatigue: float = 0.0
+var _fatigue_time: float = 0.0
 var _fatigue_blur_mat: ShaderMaterial = null
 var _fatigue_blur_rect: ColorRect = null
 
-# ruch (liczone raz na klatkę fizyki)
 var _h_speed: float = 0.0
 var _moving: bool = false
 var _sprinting: bool = false
 var step_progress: float = 0.0
 
-# dźwięki sprintu
-var _sprint_time: float = 0.0     # ile sekund z rzędu gracz sprintuje
-var _breath_left: float = 0.0     # ile jeszcze sekund ma grać sapanie
-var _heart_left: float = 0.0      # ile jeszcze sekund ma grać serce
+var _sprint_time: float = 0.0
+var _breath_left: float = 0.0
+var _heart_left: float = 0.0
 
-# kucanie
 var _crouching: bool = false
 var _crouch_input: bool = false
 var _col: CollisionShape3D = null
-var _stand_h: float = 1.8     # nadpisywane wysokością z kształtu kolizji
+var _stand_h: float = 1.8
 var _crouch_h: float = 1.1
-var _stand_y: float = 0.0     # pozycja Y węzła kolizji w staniu
-var _cam_offset: float = 0.0  # aktualne przesunięcie kamery w dół (<= 0)
+var _stand_y: float = 0.0
+var _cam_offset: float = 0.0
 
-# animacje bohatera
 var _anim_current: String = ""
-var _transition: String = ""   # "" / "down" (kucanie) / "up" (wstawanie)
+var _transition: String = ""
 var _was_crouching: bool = false
-var _jumped: bool = false      # true od chwili odbicia do lądowania (steruje animacją Hero_jump)
-var _jump_pending: bool = false   # true = gra animacja skoku, postać jeszcze się nie odbiła
-var _jump_wait: float = 0.0       # ile sekund zostało do odbicia
+var _jumped: bool = false
+var _jump_pending: bool = false
+var _jump_wait: float = 0.0
 
-# head bob kamery
 var bob_czas := 0.0
-var _head_bob_offset := Vector3.ZERO   # aktualne przesunięcie kamery od bobu
-var _head_bob_roll: float = 0.0        # aktualny przechył kamery od bobu
+var _head_bob_offset := Vector3.ZERO
+var _head_bob_roll: float = 0.0
 
-# latarka
 var held_base_pos := Vector3.ZERO
 var held_base_rot := Vector3.ZERO
 var bob_time: float = 0.0
@@ -267,10 +241,8 @@ var sway_current := Vector3.ZERO
 var mouse_input := Vector2.ZERO
 
 
-# ---------- Inicjalizacja ----------
-
 func _ready() -> void:
-	set_process(false)   # _process tylko gdy trzeba (latarka w ręku / ruch kamery przy kucaniu)
+	set_process(false)
 	_setup_input_actions()
 	_setup_footstep_player()
 	_setup_sprint_audio()
@@ -282,7 +254,6 @@ func _ready() -> void:
 	_setup_animations()
 	_setup_inventory()
 	_setup_health()
-	_setup_glitch()
 	_setup_oczy()
 	_setup_fatigue_blur()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -291,22 +262,19 @@ func _ready() -> void:
 func _find_nodes() -> void:
 	interact_ray = find_child("InteractRay", true, false)
 	if interact_ray:
-		interact_ray.add_exception(self)   # promień ignoruje kapsułę gracza
+		interact_ray.add_exception(self)
 	else:
 		push_warning("Brak węzła InteractRay (RayCast3D) pod Camera3D")
 
-	# światło szukamy po typie, nazwa węzła nie ma znaczenia
 	for light in find_children("*", "SpotLight3D", true, false):
 		if light is Flashlight:
 			flashlight = light
 			break
 
-	# węzeł do kołysania: model latarki -> HeldFlashlight -> samo światło
 	held_flashlight = _find_first_node([held_model_name, "HeldFlashlight"])
 	if held_flashlight == null:
 		held_flashlight = flashlight
 
-	# węzeł do ukrywania: Cofanie (model + światło razem), a jeśli go nie ma, to samo co wyżej
 	held_root = _find_first_node([held_root_name])
 	if held_root == null:
 		held_root = held_flashlight
@@ -335,7 +303,7 @@ func _setup_held_item() -> void:
 		return
 	held_base_pos = held_flashlight.position
 	held_base_rot = held_flashlight.rotation
-	_disable_collisions(held_root)   # model w ręku nie może mieć kolizji
+	_disable_collisions(held_root)
 	held_root.visible = start_with_flashlight and flashlight != null
 	set_process(held_root.visible)
 
@@ -346,15 +314,6 @@ func _setup_inventory() -> void:
 	add_child(inventory_ui)
 
 
-func _setup_glitch() -> void:
-	if not glitch_wlaczony:
-		return
-	glitch = GlitchScript.new()
-	add_child(glitch)
-
-
-# Losowe zdarzenie: kamera odwraca się w stronę czerwonych oczu (oczy_zjawa.gd).
-# Na czas zdarzenia skrypt ustawia kontrola_zablokowana = true.
 func _setup_oczy() -> void:
 	if not oczy_wlaczone:
 		return
@@ -366,10 +325,6 @@ func _setup_oczy() -> void:
 	add_child(oczy)
 
 
-# ---------- Animacje postaci ----------
-
-# Wczytuje pliki Hero_*.res z folderu animacji, wkłada je do biblioteki "hero"
-# w AnimationPlayerze modelu i odpala idle.
 func _setup_animations() -> void:
 	if anim_player == null:
 		anim_player = find_child("AnimationPlayer2", true, false) as AnimationPlayer
@@ -405,11 +360,11 @@ func _play_anim(key: String) -> void:
 		print("animacja: ", full)
 
 
-# Przejście stanie <-> kucanie to ta sama animacja (Hero_crouch_to_stand):
-# wstawanie gra ją do przodu, kucanie od tyłu. Jeśli C zostanie wciśnięte w trakcie
-# trwającego przejścia, animacja zawraca od bieżącego miejsca i gra szybciej (anim_spam_speed).
 func _start_transition(down: bool) -> void:
 	var full := HERO_LIB + "/stand_up"
+	if anim_player == null or not anim_player.has_animation(full):
+		_transition = ""
+		return
 	var length := anim_player.get_animation(full).length
 	var spam := _transition != ""
 	var pos := anim_player.current_animation_position if spam else (length - 0.001 if down else 0.0)
@@ -432,7 +387,6 @@ func _transition_done() -> bool:
 	return pos >= length - 0.03 if _transition == "up" else pos <= 0.03
 
 
-# Wybiera animację na podstawie stanu gracza (wołane co klatkę fizyki)
 func _update_animation() -> void:
 	if anim_player == null:
 		return
@@ -442,13 +396,11 @@ func _update_animation() -> void:
 		if anim_player.has_animation(HERO_LIB + "/stand_up"):
 			_start_transition(_crouching)
 
-	# trwa animacja przejścia: gra sama, aż dojdzie do końca (albo zostanie odwrócona)
 	if _transition != "":
 		if not _transition_done():
 			return
 		_transition = ""
 
-	# skok: animacja gra raz i zostaje na ostatniej klatce do lądowania
 	if (_jump_pending or (_jumped and not is_on_floor())) and anim_player.has_animation(HERO_LIB + "/jump"):
 		anim_player.speed_scale = 1.0
 		_play_anim("jump")
@@ -469,9 +421,6 @@ func _update_animation() -> void:
 	_play_anim(key)
 
 
-# ---------- Wytrzymałość ----------
-
-# Warstwa z rozmazaniem ekranu (layer 1, więc napis [E] i ekwipunek zostają ostre)
 func _setup_fatigue_blur() -> void:
 	var warstwa := CanvasLayer.new()
 	warstwa.name = "FatigueBlurLayer"
@@ -491,8 +440,6 @@ func _setup_fatigue_blur() -> void:
 	warstwa.add_child(_fatigue_blur_rect)
 
 
-# Sprint zużywa wytrzymałość, odpoczynek ją odnawia (w bezruchu szybciej).
-# Po dojściu do zera sprint jest zablokowany, dopóki wytrzymałość nie wróci do progu.
 func _update_stamina(delta: float) -> void:
 	if not stamina_enabled:
 		stamina = 1.0
@@ -511,7 +458,7 @@ func _update_stamina(delta: float) -> void:
 
 	if stamina <= 0.0:
 		if not _exhausted:
-			_rest_left = exhausted_rest_time   # dopiero co wyczerpany: musi stanąć i złapać oddech
+			_rest_left = exhausted_rest_time
 		_exhausted = true
 	elif _exhausted and stamina >= stamina_recover_threshold:
 		_exhausted = false
@@ -523,7 +470,7 @@ func _update_stamina(delta: float) -> void:
 
 
 func _update_fatigue_blur() -> void:
-	if _fatigue_blur_rect == null:
+	if _fatigue_blur_rect == null or _fatigue_blur_mat == null:
 		return
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
@@ -538,12 +485,9 @@ func is_exhausted() -> bool:
 	return _exhausted
 
 
-# true = postać łapie oddech po wyczerpaniu: nie może się ruszać ani skakać
 func is_resting() -> bool:
 	return _rest_left > 0.0
 
-
-# ---------- Życie ----------
 
 func _setup_health() -> void:
 	health = max_health
@@ -565,17 +509,15 @@ func _setup_health() -> void:
 	add_child(cough_player)
 
 
-# Zadaj obrażenia graczowi (wywołuj np. z przeciwnika: gracz.take_damage(20.0))
 func take_damage(amount: float) -> void:
 	if _dead or amount <= 0.0:
 		return
-	_since_damage = 0.0   # regeneracja zaczyna odliczanie od nowa
+	_since_damage = 0.0
 	if health_overlay:
 		health_overlay.blysk_obrazen()
 	_set_health(health - amount)
 
 
-# Ulecz gracza (apteczka itp.)
 func heal(amount: float) -> void:
 	if _dead or amount <= 0.0:
 		return
@@ -594,20 +536,17 @@ func _set_health(value: float) -> void:
 		_die()
 
 
-# Przelicza % życia na natężenie ciemnienia ekranu (0 = brak, 1 = maksimum)
 func _update_health_overlay(instant: bool = false) -> void:
 	if health_overlay == null:
 		return
 	health_overlay.ustaw_natezenie(_health_intensity(), instant)
 
 
-# 0.0 = zdrowy (powyżej progu), 1.0 = prawie martwy. Steruje ciemnieniem, rozmazaniem i dźwiękiem
 func _health_intensity() -> float:
 	var percent := health / maxf(max_health, 0.001) * 100.0
 	return clampf((darken_below_percent - percent) / maxf(darken_below_percent, 0.01), 0.0, 1.0)
 
 
-# Oddech cichutko zaczyna być słyszalny przy progu i narasta; od pewnego momentu dochodzi kaszel
 func _update_health_audio(delta: float) -> void:
 	var intensity := _health_intensity()
 	_health_audio_level = lerpf(_health_audio_level, intensity, 1.0 - exp(-health_audio_smooth * delta))
@@ -617,7 +556,7 @@ func _update_health_audio(delta: float) -> void:
 			if not low_breath_player.playing:
 				low_breath_player.stream = low_health_breath_sound
 				low_breath_player.play()
-			var k := pow(_health_audio_level, 1.5)   # wolny start, mocniejszy przy końcu
+			var k := pow(_health_audio_level, 1.5)
 			low_breath_player.volume_db = lerpf(low_health_breath_min_db, low_health_breath_max_db, k)
 			low_breath_player.pitch_scale = lerpf(
 					low_health_breath_pitch_min, low_health_breath_pitch_max, _health_audio_level)
@@ -639,7 +578,6 @@ func _update_health_audio(delta: float) -> void:
 		_cough_timer = _next_cough_interval(intensity)
 
 
-# Im gorzej z graczem, tym częściej kaszle
 func _next_cough_interval(intensity: float) -> float:
 	var t := clampf((intensity - cough_start_intensity) / maxf(1.0 - cough_start_intensity, 0.01), 0.0, 1.0)
 	var avg := lerpf(cough_interval_max, cough_interval_min, t)
@@ -655,22 +593,76 @@ func _update_health(delta: float) -> void:
 
 
 func _die() -> void:
+	if _dead:
+		return
 	_dead = true
 	died.emit()
 	if oczy != null:
-		oczy.wlaczony = false   # po śmierci nie startują nowe zdarzenia z oczami
+		oczy.wlaczony = false
 	if _inventory_open():
 		_toggle_inventory()
 	if prompt_label:
 		prompt_label.visible = false
 	if health_overlay:
 		health_overlay.smierc()
-	if restart_on_death:
-		await get_tree().create_timer(death_delay).timeout
-		get_tree().reload_current_scene()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_show_death_screen()
 
 
-# ---------- Ekwipunek ----------
+func _show_death_screen() -> void:
+	# Ekran tworzony jest dopiero po śmierci, więc nie wymaga osobnej sceny UI.
+	var layer := CanvasLayer.new()
+	layer.name = "DeathScreen"
+	layer.layer = 100
+	add_child(layer)
+
+	var background := ColorRect.new()
+	background.name = "DarkBackground"
+	background.color = Color(0.0, 0.0, 0.0, 0.82)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(background)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.add_child(center)
+
+	var layout := VBoxContainer.new()
+	layout.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.add_theme_constant_override("separation", 28)
+	layout.custom_minimum_size = Vector2(420, 0)
+	center.add_child(layout)
+
+	var title := Label.new()
+	title.text = "UMARŁEŚ"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 58)
+	title.add_theme_color_override("font_color", Color(0.8, 0.05, 0.05))
+	layout.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "Twoja historia dobiegła końca..."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 20)
+	subtitle.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	layout.add_child(subtitle)
+
+	var retry := Button.new()
+	retry.text = "SPRÓBUJ PONOWNIE"
+	retry.custom_minimum_size = Vector2(280, 58)
+	retry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	retry.add_theme_font_size_override("font_size", 22)
+	retry.pressed.connect(_restart_after_death)
+	layout.add_child(retry)
+
+
+func _restart_after_death() -> void:
+	# Autoload Inventory nie jest usuwany przy przeładowaniu sceny,
+	# dlatego czyścimy go przed rozpoczęciem nowej próby.
+	if Inventory != null and Inventory.has_method("reset"):
+		Inventory.reset()
+	get_tree().reload_current_scene()
+
 
 func _inventory_open() -> bool:
 	return inventory_ui != null and inventory_ui.otwarty
@@ -688,9 +680,6 @@ func _toggle_inventory() -> void:
 	mouse_input = Vector2.ZERO
 
 
-# ---------- Kucanie ----------
-
-# Szuka kształtu kolizji gracza (bezpośrednie dziecko) i liczy wysokości stania / kucania
 func _setup_crouch() -> void:
 	for child in get_children():
 		if child is CollisionShape3D and child.shape != null:
@@ -706,7 +695,7 @@ func _setup_crouch() -> void:
 		_col = null
 		return
 
-	_col.shape = _col.shape.duplicate() as Shape3D   # unikamy zmiany współdzielonego zasobu
+	_col.shape = _col.shape.duplicate() as Shape3D
 	_stand_h = height
 	_stand_y = _col.position.y
 	var min_height := 0.0
@@ -750,12 +739,23 @@ func _update_crouch() -> void:
 		_set_crouching(false)
 
 
-# Sprawdza, czy nad głową jest miejsce na wstanie (sufit)
 func _can_stand() -> bool:
-	return not test_move(global_transform, Vector3.UP * (_stand_h - _crouch_h))
+	if _col == null:
+		return true
+	var standing_shape := _col.shape.duplicate() as Shape3D
+	_set_shape_height(standing_shape, _stand_h)
+	var standing_transform := _col.global_transform
+	standing_transform.origin += Vector3.UP * (_stand_h - _crouch_h) * 0.5
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = standing_shape
+	query.transform = standing_transform
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
-# Kolizja zmienia się od razu (stopy zostają w miejscu), kamera płynnie w _process
 func _set_crouching(state: bool) -> void:
 	_crouching = state
 	if _col != null:
@@ -765,7 +765,6 @@ func _set_crouching(state: bool) -> void:
 	set_process(true)
 
 
-# Zwraca true, dopóki kamera jeszcze się przesuwa
 func _update_crouch_camera(delta: float) -> bool:
 	var target := -(_stand_h - _crouch_h) if _crouching else 0.0
 	if _cam_offset == target:
@@ -773,12 +772,10 @@ func _update_crouch_camera(delta: float) -> bool:
 	var new_offset := lerpf(_cam_offset, target, 1.0 - exp(-crouch_transition_speed * delta))
 	if absf(new_offset - target) < 0.001:
 		new_offset = target
-	camera.position.y += new_offset - _cam_offset   # różnica, więc nie psuje innych przesunięć kamery
+	camera.position.y += new_offset - _cam_offset
 	_cam_offset = new_offset
 	return new_offset != target
 
-
-# ---------- Ustawienia wejścia ----------
 
 func _setup_input_actions() -> void:
 	for action in INPUT_KEYS:
@@ -795,51 +792,45 @@ func _add_key_action(action: String, key: Key) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	# klawisze testowe życia: F3 = obrażenia, F4 = leczenie
 	if debug_health_keys and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F3:
 			take_damage(10.0)
 		elif event.physical_keycode == KEY_F4:
 			heal(10.0)
 
-	# martwy gracz nie steruje postacią
 	if _dead:
 		return
 
-	if event.is_action_pressed("inventory"):
-		if not kontrola_zablokowana:   # w trakcie zdarzenia nie otwieramy ekwipunku
+	if event.is_action_pressed("inventory") and not event.is_echo():
+		if not kontrola_zablokowana:
 			_toggle_inventory()
+		get_viewport().set_input_as_handled()
 		return
 
-	# przy otwartym ekwipunku: tylko Esc zamyka, reszta wejścia idzie do UI
 	if _inventory_open():
 		if event.is_action_pressed("ui_cancel"):
 			_toggle_inventory()
 		return
 
-	# w trakcie zdarzenia kamerą steruje skrypt zdarzenia, myszka jest ignorowana
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
 			and not kontrola_zablokowana:
 		_look(event.relative)
 
-	if event.is_action_pressed("interact") and not kontrola_zablokowana:
+	if event.is_action_pressed("interact") and not event.is_echo() and not kontrola_zablokowana:
 		_try_interact()
 
 	if event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	elif event is InputEventMouseButton and event.pressed:
+	elif event is InputEventMouseButton and event.pressed and not kontrola_zablokowana:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _look(relative: Vector2) -> void:
 	rotate_y(-relative.x * MOUSE_SENS)
 	camera.rotation.x = clampf(camera.rotation.x - relative.y * MOUSE_SENS, -MAX_LOOK_ANGLE, MAX_LOOK_ANGLE)
-	mouse_input += relative   # używane do opóźnienia latarki
+	mouse_input += relative
 
 
-# ---------- Interakcja ----------
-
-# Zwraca obiekt, na który patrzy gracz, jeśli da się z nim wejść w interakcję
 func _get_interact_target() -> Object:
 	if interact_ray == null or not interact_ray.is_colliding():
 		return null
@@ -855,7 +846,6 @@ func _try_interact() -> void:
 		target.interact(self)
 
 
-# Wywoływane przez przedmiot na ziemi
 func give_flashlight() -> void:
 	if flashlight:
 		flashlight.pick_up()
@@ -865,11 +855,9 @@ func give_flashlight() -> void:
 		set_process(true)
 
 
-# ---------- Napis "[E] ..." ----------
-
 func _create_prompt_label() -> void:
 	var hud := CanvasLayer.new()
-	hud.layer = 2   # nad efektem post-process (Layer 1)
+	hud.layer = 2
 	add_child(hud)
 
 	prompt_label = Label.new()
@@ -893,8 +881,6 @@ func _update_prompt() -> void:
 		prompt_label.text = "[E] " + (str(text) if text != null else "Użyj")
 
 
-# ---------- Dźwięk kroków ----------
-
 func _setup_footstep_player() -> void:
 	footstep_player = find_child("FootstepPlayer", true, false)
 	if footstep_player == null:
@@ -903,24 +889,24 @@ func _setup_footstep_player() -> void:
 		add_child(footstep_player)
 		print("Utworzono FootstepPlayer w kodzie")
 	footstep_player.volume_db = footstep_volume_db
-	footstep_player.max_polyphony = 3   # pozwala, by kroki nakładały się bez ucinania
+	footstep_player.max_polyphony = 3
 
 
 func _handle_footsteps(delta: float) -> void:
 	if _moving:
 		step_progress += _h_speed * delta
-		if step_progress >= step_distance:
-			step_progress = 0.0
+		var interval := maxf(step_distance, 0.1)
+		if step_progress >= interval:
+			step_progress = fmod(step_progress, interval)
 			_play_step()
 	else:
-		step_progress = step_distance   # pierwszy krok zagra od razu po ruszeniu
+		step_progress = maxf(step_distance, 0.1)
 
 
 func _play_step() -> void:
 	if not footstep_sounds.is_empty():
 		footstep_player.stream = footstep_sounds.pick_random()
 	if footstep_player.stream == null:
-		push_warning("Brak dźwięku kroków: uzupełnij 'Footstep Sounds' w Inspektorze gracza")
 		return
 	footstep_player.pitch_scale = randf_range(0.9, 1.1)
 	footstep_player.volume_db = footstep_volume_db + (crouch_footstep_db if _crouching else 0.0)
@@ -928,8 +914,6 @@ func _play_step() -> void:
 	if debug_footsteps:
 		print("krok")
 
-
-# ---------- Dźwięki sprintu: sapanie + bicie serca ----------
 
 func _setup_sprint_audio() -> void:
 	breath_player = _make_loop_player("BreathPlayer", breath_volume_db)
@@ -952,8 +936,6 @@ func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlay
 	return p
 
 
-# MP3 / OGG zapętlamy w kodzie (bez płynnych przerw). WAV nie jest ruszany,
-# bo ciągłość zapewnia ponowne odpalenie dźwięku zaraz po jego końcu (patrz _drive_loop).
 func _prepare_loop(stream: AudioStream) -> void:
 	if stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = true
@@ -970,7 +952,6 @@ func _update_sprint_audio(delta: float) -> void:
 	_breath_left = _tick_sound_timer(_breath_left, breath_start_delay, breath_recovery_time, delta)
 	_heart_left = _tick_sound_timer(_heart_left, heartbeat_start_delay, heartbeat_recovery_time, delta)
 
-	# sapanie: głośność i wysokość zależą od zmęczenia, gra też dopóki gracz się nie uspokoi
 	var breath_active := _breath_left > 0.0
 	var breath_target_db := breath_volume_db
 	if stamina_enabled:
@@ -980,7 +961,6 @@ func _update_sprint_audio(delta: float) -> void:
 			breath_player.pitch_scale = lerpf(breath_pitch_min, breath_pitch_max, _fatigue)
 
 	_drive_loop(breath_player, breath_sound, breath_target_db, breath_active, delta)
-	# serce: na początku ledwo słyszalne i wolne, im większe zmęczenie, tym głośniej i szybciej
 	var heart_active := _heart_left > 0.0
 	var heart_target_db := heartbeat_volume_db
 	if stamina_enabled:
@@ -992,8 +972,6 @@ func _update_sprint_audio(delta: float) -> void:
 	_drive_loop(heart_player, heartbeat_sound, heart_target_db, heart_active, delta)
 
 
-# Podczas sprintu (po opóźnieniu startu) licznik jest zawsze pełny.
-# Po zakończeniu sprintu odlicza do zera, a dźwięk gra do tego czasu.
 func _tick_sound_timer(left: float, start_delay: float, recovery: float, delta: float) -> float:
 	if _sprinting:
 		if _sprint_time >= start_delay:
@@ -1002,7 +980,6 @@ func _tick_sound_timer(left: float, start_delay: float, recovery: float, delta: 
 	return maxf(left - delta, 0.0)
 
 
-# Gra dźwięk w kółko, dopóki 'active' jest true. Włącza i wyłącza go płynnie.
 func _drive_loop(player: AudioStreamPlayer, stream: AudioStream, base_db: float, active: bool, delta: float) -> void:
 	if player == null or stream == null:
 		return
@@ -1011,8 +988,10 @@ func _drive_loop(player: AudioStreamPlayer, stream: AudioStream, base_db: float,
 
 	if active:
 		if not player.playing:
+			var same_stream := player.stream == stream
 			player.stream = stream
-			player.volume_db = SOUND_SILENT_DB   # start od ciszy, potem płynnie głośniej
+			if not same_stream or player.volume_db <= SOUND_SILENT_DB:
+				player.volume_db = SOUND_SILENT_DB
 			player.play()
 			if debug_sprint_audio:
 				print("start dźwięku: ", player.name)
@@ -1025,8 +1004,6 @@ func _drive_loop(player: AudioStreamPlayer, stream: AudioStream, base_db: float,
 				print("koniec dźwięku: ", player.name)
 
 
-# ---------- _process: kamera przy kucaniu + latarka w ręku ----------
-
 func _process(delta: float) -> void:
 	var camera_busy := _update_crouch_camera(delta)
 	var held_active := held_root != null and held_flashlight != null and held_root.visible
@@ -1037,7 +1014,7 @@ func _process(delta: float) -> void:
 		mouse_input = Vector2.ZERO
 
 	if not camera_busy and not held_active:
-		set_process(false)   # nic więcej do roboty, oszczędzamy klatki
+		set_process(false)
 
 
 func _update_held_flashlight(delta: float) -> void:
@@ -1050,7 +1027,6 @@ func _update_held_flashlight(delta: float) -> void:
 	held_flashlight.rotation = held_base_rot + sway_current
 
 
-# Kołysanie przy chodzeniu / oddychanie w bezruchu
 func _calc_target_bob(delta: float) -> Vector3:
 	if _moving:
 		bob_time += delta * _h_speed * BOB_SPEED_FACTOR
@@ -1063,7 +1039,6 @@ func _calc_target_bob(delta: float) -> Vector3:
 	return Vector3(0.0, sin(_breath_time * IDLE_BREATH_SPEED) * IDLE_BREATH_AMOUNT, 0.0)
 
 
-# Opóźnienie latarki przy obracaniu myszką
 func _calc_target_sway() -> Vector3:
 	return Vector3(
 		clampf(mouse_input.y * sway_amount, -sway_max, sway_max),
@@ -1071,8 +1046,6 @@ func _calc_target_sway() -> Vector3:
 		0.0
 	)
 
-
-# ---------- Ruch ----------
 
 func _physics_process(delta: float) -> void:
 	if _dead:
@@ -1099,7 +1072,6 @@ func _physics_process(delta: float) -> void:
 	_update_prompt()
 
 
-# Po śmierci: postać hamuje, opada na ziemię, dźwięki sprintu cichną
 func _physics_dead(delta: float) -> void:
 	var horizontal := Vector2(velocity.x, velocity.z).move_toward(Vector2.ZERO, deceleration * delta)
 	velocity.x = horizontal.x
@@ -1124,27 +1096,24 @@ func _apply_gravity_and_jump(delta: float) -> void:
 		_jump_pending = false
 		return
 
-	# trwa animacja przed skokiem: odbicie dopiero po jej zakończeniu
 	if _jump_pending:
 		_jump_wait -= delta
 		if _jump_wait <= 0.0:
 			_launch_jump()
 		return
 
-	_jumped = false   # wylądowaliśmy
+	_jumped = false
 	if not _crouching and not _inventory_open() and not kontrola_zablokowana and not is_resting() \
-			and Input.is_action_just_pressed("jump"):   # w kucki, z ekwipunkiem i w trakcie zdarzenia nie skaczemy
+			and Input.is_action_just_pressed("jump"):
 		_start_jump()
 
 
-# Odpala animację skoku; samo odbicie następuje po jej zakończeniu (_launch_jump).
-# Bez animacji Hero_jump postać odbija się od razu.
 func _start_jump() -> void:
 	var full := HERO_LIB + "/jump"
 	if anim_player != null and anim_player.has_animation(full):
 		_jump_pending = true
 		_jump_wait = anim_player.get_animation(full).length * jump_launch_ratio
-		_anim_current = ""   # wymusza start animacji od początku
+		_anim_current = ""
 	else:
 		_launch_jump()
 
@@ -1164,8 +1133,9 @@ func _apply_movement(delta: float) -> void:
 
 	var speed := SPEED
 	if _crouching:
-		speed = crouch_speed   # w kucki nie ma sprintu
-	elif Input.is_action_pressed("sprint") and _can_sprint() and not kontrola_zablokowana:
+		speed = crouch_speed
+	elif input_dir != Vector2.ZERO and Input.is_action_pressed("sprint") and _can_sprint() \
+			and not kontrola_zablokowana and not is_resting():
 		speed = SPRINT_SPEED
 
 	var rate := acceleration if direction != Vector3.ZERO else deceleration
@@ -1175,13 +1145,6 @@ func _apply_movement(delta: float) -> void:
 	velocity.z = horizontal.y
 
 
-# ---------- Head bob kamery ----------
-
-# Kamera kołysze się góra-dół, na boki i przechyla (roll). Przy sprincie efekt jest mocniejszy
-# i szybszy (tempo zależy od prędkości), w kucki słabszy. Pozycja liczona jako różnica (offset),
-# więc nie gryzie się z kucaniem. Roll ustawiamy bezpośrednio, bo _look() zmienia tylko rotation.x.
-# Na to dochodzi kołysanie ze zmęczenia (h_offset / v_offset kamery + dodatkowy przechył),
-# które rośnie dopiero blisko limitu wytrzymałości.
 func _update_head_bob(delta: float) -> void:
 	var cel_poz := Vector3.ZERO
 	var cel_roll := 0.0
@@ -1196,13 +1159,13 @@ func _update_head_bob(delta: float) -> void:
 			amp = BOB_CROUCH_AMP
 			roll_amp = BOB_CROUCH_AMP
 
-		bob_czas += delta * _h_speed * BOB_FREQ * 0.5   # szybszy ruch = szybsze kroki
+		bob_czas += delta * _h_speed * BOB_FREQ * 0.5
 		cel_poz = Vector3(
-			cos(bob_czas) * BOB_AMP_X * amp,             # na boki
-			sin(bob_czas * 2.0) * BOB_AMP_Y * amp,       # góra-dół (dwa razy częściej niż boki)
+			cos(bob_czas) * BOB_AMP_X * amp,
+			sin(bob_czas * 2.0) * BOB_AMP_Y * amp,
 			0.0
 		)
-		cel_roll = cos(bob_czas) * BOB_ROLL * roll_amp   # przechył w rytm kroków
+		cel_roll = cos(bob_czas) * BOB_ROLL * roll_amp
 
 	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
 
@@ -1212,7 +1175,6 @@ func _update_head_bob(delta: float) -> void:
 
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
-	# zmęczenie: im bliżej limitu, tym mocniejsze (i szybsze) kołysanie postacią
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_time += delta * (1.0 + blisko * 1.5)
 	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko
@@ -1221,8 +1183,6 @@ func _update_head_bob(delta: float) -> void:
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll
 
-
-# ---------- Pomocnicze ----------
 
 func _disable_collisions(node: Node) -> void:
 	if node is CollisionObject3D:

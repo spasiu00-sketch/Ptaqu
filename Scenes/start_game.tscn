@@ -23,6 +23,7 @@ size = Vector3(24.536346, 0.21594238, 18.977074)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_avyfn"]
 albedo_texture = ExtResource("1_u7jam")
+albedo_texture_force_srgb = true
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_riqys"]
 

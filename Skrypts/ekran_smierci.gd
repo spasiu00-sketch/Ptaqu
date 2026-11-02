@@ -1,21 +1,17 @@
 class_name EkranSmierci
 extends CanvasLayer
-# Ekran po śmierci gracza: krwawa winieta, napis "NIE ZDANE" (drżenie, duchy, glitch)
-# i przycisk "ZRESETUJ", który wczytuje grę od nowa (tak jak "NOWA GRA" w menu).
-# Tworzy go gracz (character_body_3d.gd) po śmierci i wywołuje pokaz().
 
-@export_file("*.tscn") var scena_gry: String = "res://Scenes/start_game.tscn"   # ta sama co w MainMenu
+@export_file("*.tscn") var scena_gry: String = "res://Scenes/start_game.tscn"
 @export var tekst_tytulu: String = "NIE ZDANE"
 @export var tekst_przycisku: String = "ZRESETUJ"
-@export var dzwiek: AudioStream                 # opcjonalny dźwięk przy pojawieniu się napisu
+@export var dzwiek: AudioStream
 @export var glosnosc_db: float = 0.0
-@export var opoznienie_przycisku: float = 2.2   # po ilu sekundach od pokazania można kliknąć przycisk
+@export var opoznienie_przycisku: float = 2.2
 
 const COL_TYTUL := Color(0.78, 0.07, 0.05)
 const COL_DUCH := Color(0.45, 0.0, 0.0)
 const COL_TEKST := Color(0.86, 0.80, 0.74)
 
-# Tło: ciemność ze szkarłatną winietą, która powoli pulsuje
 const SHADER_TLA := """
 shader_type canvas_item;
 uniform float sila : hint_range(0.0, 1.0) = 0.0;
@@ -54,14 +50,12 @@ var _restart: bool = false
 
 
 func _ready() -> void:
-	layer = 90   # nad HUD i ekwipunkiem, pod jumpscare (100+)
+	layer = 90
 	visible = false
 	_zbuduj()
 	_uklad()
 	get_viewport().size_changed.connect(_uklad)
 
-
-# ---------- Budowa ----------
 
 func _zbuduj() -> void:
 	var baza := SystemFont.new()
@@ -75,7 +69,7 @@ func _zbuduj() -> void:
 
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.mouse_filter = Control.MOUSE_FILTER_STOP   # klik nie przechodzi do gry
+	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_root)
 
 	var shader := Shader.new()
@@ -101,7 +95,6 @@ func _zbuduj() -> void:
 	_tytul = _zrob_napis(tekst_tytulu, COL_TYTUL)
 	box.add_child(_tytul)
 
-	# "duchy" napisu: czerwone kopie za głównym napisem, drżą podczas glitcha
 	_duch_a = _zrob_napis(tekst_tytulu, COL_DUCH)
 	_duch_b = _zrob_napis(tekst_tytulu, Color(0.0, 0.18, 0.22, 0.55))
 	for g in [_duch_a, _duch_b]:
@@ -138,7 +131,6 @@ func _zbuduj() -> void:
 	_przycisk.pressed.connect(_zresetuj)
 	box.add_child(_przycisk)
 
-	# czarna zasłona na wygaszenie przed wczytaniem sceny
 	_czern = ColorRect.new()
 	_czern.color = Color(0, 0, 0, 0)
 	_czern.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -167,7 +159,6 @@ func _styl(tlo: Color, ramka: Color) -> StyleBoxFlat:
 	return s
 
 
-# Rozmiary liczone z wysokości okna, więc wygląda tak samo w każdej rozdzielczości
 func _uklad() -> void:
 	if _root == null:
 		return
@@ -196,8 +187,6 @@ func _uklad() -> void:
 		st.content_margin_bottom = int(font_btn * 0.5)
 
 
-# ---------- Pokazanie ----------
-
 func pokaz() -> void:
 	if _pokazany:
 		return
@@ -213,7 +202,7 @@ func pokaz() -> void:
 		sfx.finished.connect(sfx.queue_free)
 		sfx.play()
 
-	_tytul.scale = Vector2(1.35, 1.35)   # napis "uderza" z powiększenia
+	_tytul.scale = Vector2(1.35, 1.35)
 
 	var tw := create_tween()
 	tw.tween_property(self, "_sila_tla", 1.0, 1.6)
@@ -226,10 +215,8 @@ func pokaz() -> void:
 	if not is_inside_tree() or _restart:
 		return
 	_przycisk.disabled = false
-	_przycisk.grab_focus()   # Enter / Spacja też działają
+	_przycisk.grab_focus()
 
-
-# ---------- Animacja ----------
 
 func _process(delta: float) -> void:
 	if not _pokazany:
@@ -240,13 +227,12 @@ func _process(delta: float) -> void:
 
 	var px := float(_tytul.get_theme_font_size("font_size"))
 
-	# rzadkie, krótkie glitche: napis drga, duchy się rozjeżdżają, kolor mruga
 	if _glitch <= 0.0 and randf() < 0.012:
 		_glitch = randf_range(0.05, 0.22)
 
 	var alfa := _alfa_tytulu * (0.86 + 0.14 * sin(_czas * 7.0))
 	var kolor := Color(1.0, 1.0, 1.0, alfa)
-	var dx_a := sin(_czas * 1.3) * px * 0.012   # spokojny dryf duchów
+	var dx_a := sin(_czas * 1.3) * px * 0.012
 	var dx_b := -sin(_czas * 1.1) * px * 0.012
 	var dy := 0.0
 
@@ -262,7 +248,6 @@ func _process(delta: float) -> void:
 	_przesun_ducha(_duch_a, dx_a, dy)
 	_przesun_ducha(_duch_b, dx_b, -dy)
 
-	# ramka przycisku lekko pulsuje
 	if not _przycisk.disabled:
 		var p := 0.5 + 0.5 * sin(_czas * 2.2)
 		_st_norm.border_color = Color(0.42, 0.06, 0.05).lerp(Color(0.75, 0.11, 0.08), p)
@@ -275,15 +260,12 @@ func _przesun_ducha(duch: Label, dx: float, dy: float) -> void:
 	duch.offset_bottom = dy
 
 
-# ---------- Reset ----------
-
 func _zresetuj() -> void:
 	if _restart:
 		return
 	_restart = true
 	_przycisk.disabled = true
 
-	# ekwipunek to autoload i przeżywa zmianę sceny, więc czyścimy go jak przy nowej grze
 	var inv := get_node_or_null("/root/Inventory")
 	if inv != null and inv.has_method("reset"):
 		inv.reset()
