@@ -1174,9 +1174,10 @@ script = ExtResource("11_l1rcp")
 obiekt = NodePath("reka/Untitled_test animacji")
 swiatlo = NodePath("reka/Untitled_test animacji/HeldFlashlight")
 
-[node name="reka" type="Node3D" parent="CharacterBody3D/Camera3D/Cofanie" unique_id=428109960]
+[node name="reka" type="Node3D" parent="CharacterBody3D/Camera3D/Cofanie" unique_id=428109960 node_paths=PackedStringArray("gracz")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.7717346, -0.23141304)
 script = ExtResource("15_nw3qc")
+gracz = NodePath("../../..")
 
 [node name="Untitled_test animacji" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=430140981 instance=ExtResource("4_px5sl")]
 transform = Transform3D(-3.4969112e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.4969112e-09, 0.55304027, 0.50359243, -0.38987306)
