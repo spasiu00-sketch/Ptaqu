@@ -16,10 +16,13 @@
 [ext_resource type="Texture2D" uid="uid://c0eycq47mgdsl" path="res://Models/Hero/TEST_MAIN_HERO_ANIMATIONS_chatgpt procedural.png" id="12_w85my"]
 [ext_resource type="Animation" uid="uid://dll6v1gbjmwi0" path="res://Animations/Hero_idle.res" id="13_et0tf"]
 [ext_resource type="Animation" uid="uid://08iq5psdy6r8" path="res://Animations/Hero_tpose.res" id="14_hgna0"]
+[ext_resource type="Script" uid="uid://bbudtp830qym6" path="res://Skrypts/reka_przedmiot.gd" id="15_nw3qc"]
 [ext_resource type="Animation" uid="uid://bwc5ty7qp16o5" path="res://Animations/Hero_walking.res" id="15_s7tkn"]
 [ext_resource type="Animation" uid="uid://u6qwu0ku57om" path="res://Animations/Hero_crouch_to_stand.res" id="16_nw3qc"]
+[ext_resource type="Script" uid="uid://dwx1scmyoat51" path="res://Skrypts/przedmiot_wrece.gd" id="17_1g2gg"]
 [ext_resource type="Animation" uid="uid://co3x1v1lxt1k0" path="res://Animations/Hero_crouch_walk.res" id="17_rtvxd"]
 [ext_resource type="Animation" uid="uid://devxef7jt2yv" path="res://Animations/Hero_idle_crouch.res" id="18_1g2gg"]
+[ext_resource type="Resource" uid="uid://cr45twhtu7b3b" path="res://Items/Latarka.tres" id="18_rtvxd"]
 
 [sub_resource type="GDScript" id="GDScript_7iw6i"]
 script/source = "extends Node3D
@@ -1168,13 +1171,20 @@ near = 0.052
 [node name="Cofanie" type="Node3D" parent="CharacterBody3D/Camera3D" unique_id=397148804 node_paths=PackedStringArray("obiekt", "swiatlo")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03952968, 0, 0)
 script = ExtResource("11_l1rcp")
-obiekt = NodePath("Untitled_test animacji")
-swiatlo = NodePath("Untitled_test animacji/HeldFlashlight")
+obiekt = NodePath("reka/Untitled_test animacji")
+swiatlo = NodePath("reka/Untitled_test animacji/HeldFlashlight")
 
-[node name="Untitled_test animacji" parent="CharacterBody3D/Camera3D/Cofanie" unique_id=430140981 instance=ExtResource("4_px5sl")]
-transform = Transform3D(-3.4969112e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.4969112e-09, 0.55304027, -0.26814216, -0.6212861)
+[node name="reka" type="Node3D" parent="CharacterBody3D/Camera3D/Cofanie" unique_id=428109960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.7717346, -0.23141304)
+script = ExtResource("15_nw3qc")
 
-[node name="HeldFlashlight" type="SpotLight3D" parent="CharacterBody3D/Camera3D/Cofanie/Untitled_test animacji" unique_id=2097009686]
+[node name="Untitled_test animacji" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=430140981 instance=ExtResource("4_px5sl")]
+transform = Transform3D(-3.4969112e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.4969112e-09, 0.55304027, 0.50359243, -0.38987306)
+script = ExtResource("17_1g2gg")
+nazwa_przedmiotu = "Latarka"
+item = ExtResource("18_rtvxd")
+
+[node name="HeldFlashlight" type="SpotLight3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Untitled_test animacji" unique_id=2097009686]
 transform = Transform3D(-5.4639236e-07, 0, -12.5, 0, 12.5, 0, 12.5, 0, -5.4639236e-07, 5.4493685, -0.036695957, 0.11889601)
 light_color = Color(1, 0.8666667, 1, 1)
 spot_range = 10.0
@@ -1184,7 +1194,7 @@ toggle_sound = ExtResource("6_jb3kq")
 flicker_start_sound = ExtResource("7_7tnxx")
 dead_sound = ExtResource("8_bwfjh")
 
-[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="CharacterBody3D/Camera3D/Cofanie/Untitled_test animacji" unique_id=400462674]
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Untitled_test animacji" unique_id=400462674]
 
 [node name="InteractRay" type="RayCast3D" parent="CharacterBody3D/Camera3D" unique_id=1844702724]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08896881, 0, -5.9604645e-08)

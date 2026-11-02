@@ -9,12 +9,16 @@ extends SpotLight3D
 @export var flicker_below: float = 20.0            # poniżej tego % zaczyna migotać
 @export var hold_time: float = 3.0                 # ile sekund trzymać F, żeby przeładować
 
+# Nazwa pokazywana po wyjęciu latarki z ręki (reka_przedmiotow.gd)
+@export var nazwa_przedmiotu: String = "Latarka"
+
 # Przedmiot "Bateria" zużywany przy przeładowaniu.
 # Puste = latarka szuka w ekwipunku przedmiotu o nazwie z pola 'Battery Name'.
 @export var battery_item: Item
 @export var battery_name: String = "Bateria"
 
-# Węzeł zawierający model i AnimationPlayery. Puste = znajdzie sam (idzie w górę drzewa)
+# Węzeł zawierający model i AnimationPlayery. Puste = znajdzie sam (idzie w górę drzewa).
+# Przy systemie "Reka" lepiej wskazać tu model latarki (Untitled_test animacji) ręcznie.
 @export var model_root: Node3D
 
 # Animacje przeładowania, odtwarzane NARAZ (spacje na początku nazw są ignorowane)
@@ -34,11 +38,14 @@ extends SpotLight3D
 @export var sound_volume_db: float = 0.0
 
 const PLAYER_PREFIX := "FlashlightAnim_"
+const GRUPA_REKI := "reka_przedmiotow"
 
 var battery: float
 var unlocked: bool = false
 var is_on: bool = false
 var is_busy: bool = false
+var equipped: bool = true          # false = latarka schowana (w ręku jest inny przedmiot albo nic)
+var _wracac_swiatlo: bool = false  # czy po wyjęciu z kieszeni ma się od razu zapalić
 var _players: Array = []   # AnimationPlayer lub null, kolejność jak w reload_animations
 var _flicker_timer: float = 0.0
 var _flicker_sound_played: bool = false
@@ -57,7 +64,7 @@ var _sfx_alert: AudioStreamPlayer
 func _ready() -> void:
 	battery = max_battery * clampf(start_battery_percent, 0.0, 100.0) / 100.0
 	shadow_enabled = true
-	visible = true   # NIE ruszamy visible: ukrywaniem zajmuje się player.gd
+	visible = true   # NIE ruszamy visible: ukrywaniem zajmuje się reka_przedmiotow.gd
 	unlocked = starts_unlocked
 
 	# osobne odtwarzacze, żeby dźwięki nie ucinały się nawzajem
@@ -93,6 +100,38 @@ func _ensure_key_action(action: String, key: Key) -> void:
 		var ev := InputEventKey.new()
 		ev.physical_keycode = key
 		InputMap.action_add_event(action, ev)
+
+
+# ---------- Interfejs dla reka_przedmiotow.gd ----------
+
+# Latarka jest "w kieszeni" dopiero po podniesieniu z ziemi
+func czy_dostepny() -> bool:
+	return unlocked
+
+
+# Wzięta do ręki: jeśli świeciła przed schowaniem, zapala się z powrotem
+func equip() -> void:
+	equipped = true
+	if _wracac_swiatlo and battery > 0.0:
+		_set_light(true)
+	_wracac_swiatlo = false
+
+
+# Schowana: gaśnie, nie zużywa baterii i nie reaguje na F
+func unequip() -> void:
+	if not equipped:
+		return
+	equipped = false
+	_f_down = false
+	_f_handled = false
+	_f_time = 0.0
+	_wracac_swiatlo = is_on
+	_set_light(false)
+
+
+# Nie wolno chować latarki w trakcie wymiany baterii
+func mozna_schowac() -> bool:
+	return not is_busy
 
 
 # ---------- Model: pozycje spoczynkowe i cienie ----------
@@ -380,7 +419,10 @@ func _set_light(state: bool) -> void:
 func pick_up() -> void:
 	unlocked = true
 	if battery > 0.0:
-		_set_light(true)
+		if equipped:
+			_set_light(true)
+		else:
+			_wracac_swiatlo = true   # zaświeci się, gdy latarka trafi do ręki
 
 
 func _toggle_light() -> void:
@@ -395,7 +437,7 @@ func _toggle_light() -> void:
 # ---------- Wejście: tap F = przełącz, przytrzymanie F = przeładuj ----------
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not unlocked or is_busy:
+	if not unlocked or is_busy or not equipped:
 		return
 
 	if event.is_action_pressed("flashlight") and not event.is_echo():
@@ -411,6 +453,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	# schowana latarka nie zużywa baterii i nie mierzy przytrzymania F
+	if not equipped:
+		return
+
 	# Mierzenie przytrzymania F
 	if _f_down and not _f_handled and not is_busy:
 		_f_time += delta
@@ -472,8 +518,19 @@ func _znajdz_baterie(inv: Node) -> Item:
 	return null
 
 
-# Sprawdza, czy gracz ma baterię; jeśli tak, zabiera jedną i odpala animację wymiany
+# Sprawdza, czy gracz ma baterię; jeśli tak, zabiera jedną i odpala animację wymiany.
+# Gdy latarka jest schowana (np. w ręku jest aparat), najpierw prosi rękę, żeby ją wyjęła.
 func _try_reload() -> void:
+	if not equipped:
+		var czekano := 0.0
+		while not equipped and czekano < 1.5:
+			get_tree().call_group(GRUPA_REKI, "wyposaz_obsluge", self)
+			await get_tree().process_frame
+			czekano += get_process_delta_time()
+		if not equipped:
+			print("[latarka] nie udało się wyjąć latarki z kieszeni, przeładowanie anulowane")
+			return
+
 	print("[latarka] przytrzymano F, próba przeładowania (bateria latarki: %.1f / %.1f)" % [battery, max_battery])
 
 	var inv := get_node_or_null("/root/Inventory")
