@@ -53,9 +53,9 @@ void fragment() {
 }
 """
 
-const InventoryUIScript := preload("res://Skrypts/inventory_ui.gd")
-const HealthOverlayScript := preload("res://Skrypts/zdrowie_ekran.gd")
-const OczyScript := preload("res://Skrypts/oczy_zjawa.gd")
+const InventoryUIScript := preload("res://Skrypts/Ekwipunek/inventory_ui.gd")
+const HealthOverlayScript := preload("res://Skrypts/Postać/zdrowie_ekran.gd")
+const OczyScript := preload("res://Skrypts/Mechaniki strachu/oczy_zjawa.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,

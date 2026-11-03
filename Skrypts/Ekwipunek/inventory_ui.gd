@@ -1,8 +1,17 @@
 class_name InventoryUI
 extends CanvasLayer
+# Ekwipunek budowany w kodzie. Tworzy go player (character_body_3d.gd), otwierany klawiszem Tab.
+#
+# - sama siatka ikon (bez napisów); nazwa i opis pojawiają się w podpowiedzi po najechaniu myszką
+# - rozmiar slotów, odstępy i czcionki liczone z rozmiaru okna (przelicza się przy zmianie rozdzielczości)
+# - LPM = zaznacz, dwuklik lub PPM = użyj, ŚPM = obejrzyj model 3D, przyciski na dole: OBEJRZYJ / UŻYJ / WYRZUĆ
+# - przedmiot bez ikony dostaje wygenerowany znak zastępczy (pierścień)
+
+const PodgladScript := preload("res://Skrypts/Ekwipunek/podglad_przedmiot.gd")
 
 const KOLUMNY := 5
 
+# ---------- Paleta (ciemna, wypłowiała, krew i rdza) ----------
 const COL_DIM := Color(0.0, 0.0, 0.0, 0.74)
 const COL_PANEL := Color(0.030, 0.024, 0.027, 0.97)
 const COL_PANEL_BORDER := Color(0.30, 0.04, 0.04)
@@ -28,9 +37,11 @@ var _panel: PanelContainer
 var _box: VBoxContainer
 var _siatka: GridContainer
 var _linia: ColorRect
-var _sloty: Array[Dictionary] = []
+var _sloty: Array[Dictionary] = []   # {"root": Control, "tlo": Panel, "ikona": TextureRect, "ilosc": Label}
+var _btn_obejrzyj: Button
 var _btn_uzyj: Button
 var _btn_wyrzuc: Button
+var _podglad: CanvasLayer
 
 var _tip: PanelContainer
 var _tip_box: VBoxContainer
@@ -41,9 +52,9 @@ var _tip_podpowiedz: Label
 
 var _wybrany: int = -1
 var _hover: int = -1
-var _przeciaga: bool = false
-var _drag_z: int = -1
-var _drop_cel: int = -1
+var _przeciaga: bool = false   # trwa przeciąganie przedmiotu
+var _drag_z: int = -1           # slot, z którego przeciągamy
+var _drop_cel: int = -1         # slot pod kursorem w trakcie przeciągania
 var _rozmiar_slotu: int = 80
 
 var _font: Font
@@ -62,7 +73,7 @@ var _st_btn_off: StyleBoxFlat
 
 
 func _ready() -> void:
-	layer = 3
+	layer = 3   # nad HUD (2), pod podglądem (4) i jumpscare (100+)
 	visible = false
 	set_process(false)
 	_inv = get_node_or_null("/root/Inventory")
@@ -72,6 +83,8 @@ func _ready() -> void:
 	_font = _zrob_font()
 	_placeholder = _zrob_placeholder()
 	_zbuduj()
+	_podglad = PodgladScript.new()
+	add_child(_podglad)
 	_inv.zmieniono.connect(_odswiez)
 	get_viewport().size_changed.connect(_uklad)
 
@@ -90,6 +103,8 @@ func otworz() -> void:
 
 
 func zamknij() -> void:
+	if _podglad != null:
+		_podglad.zamknij()
 	otwarty = false
 	visible = false
 	_hover = -1
@@ -98,12 +113,14 @@ func zamknij() -> void:
 	set_process(false)
 
 
+# ---------- Budowa ----------
+
 func _zbuduj() -> void:
 	_zrob_style()
 
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.mouse_filter = Control.MOUSE_FILTER_STOP   # klik w tło nie przechodzi do gry
 	add_child(_root)
 
 	var tlo := ColorRect.new()
@@ -136,6 +153,8 @@ func _zbuduj() -> void:
 	var akcje := HBoxContainer.new()
 	akcje.alignment = BoxContainer.ALIGNMENT_CENTER
 	_box.add_child(akcje)
+	_btn_obejrzyj = _zrob_przycisk("OBEJRZYJ", _obejrzyj)
+	akcje.add_child(_btn_obejrzyj)
 	_btn_uzyj = _zrob_przycisk("UŻYJ", _uzyj)
 	akcje.add_child(_btn_uzyj)
 	_btn_wyrzuc = _zrob_przycisk("WYRZUĆ", _wyrzuc)
@@ -144,7 +163,7 @@ func _zbuduj() -> void:
 	for i in _inv.ROZMIAR:
 		_sloty.append(_zrob_slot(i))
 
-	_zbuduj_tip()
+	_zbuduj_tip()   # ostatnie dziecko = rysowane na wierzchu
 	_uklad()
 
 
@@ -179,6 +198,7 @@ func _zrob_font() -> Font:
 	return f
 
 
+# Znak zastępczy dla przedmiotów bez ikony: pierścień z kropką w środku
 func _zrob_placeholder() -> Texture2D:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var srodek := Vector2(31.5, 31.5)
@@ -230,6 +250,7 @@ func _zrob_slot(i: int) -> Dictionary:
 	ikona.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_child(ikona)
 
+	# mała liczba przy stosach (tylko gdy > 1)
 	var ilosc := Label.new()
 	ilosc.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	ilosc.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -280,6 +301,9 @@ func _zrob_etykiete(kolor: Color) -> Label:
 	return l
 
 
+# ---------- Skalowanie do rozdzielczości ----------
+
+# Wszystkie rozmiary wynikają z rozmiaru slotu, a ten z mniejszego wymiaru okna
 func _uklad() -> void:
 	if _root == null:
 		return
@@ -324,9 +348,10 @@ func _uklad() -> void:
 		il.add_theme_font_size_override("font_size", font_ilosc)
 
 	var font_btn := clampi(int(s * 0.26), 13, 30)
-	for b in [_btn_uzyj, _btn_wyrzuc]:
+	for b in [_btn_obejrzyj, _btn_uzyj, _btn_wyrzuc]:
 		b.add_theme_font_size_override("font_size", font_btn)
 
+	# podpowiedź o stałej szerokości, zawijanie tekstu
 	var szer := clampi(int(s * 3.0), 200, 460)
 	_tip_nazwa.custom_minimum_size.x = szer
 	_tip_opis.custom_minimum_size.x = szer
@@ -340,6 +365,8 @@ func _uklad() -> void:
 	if _tip.visible:
 		_tip.reset_size()
 
+
+# ---------- Odświeżanie ----------
 
 func _odswiez() -> void:
 	if _inv == null or _sloty.is_empty():
@@ -363,10 +390,12 @@ func _odswiez() -> void:
 
 	var wybrany_slot = null if _wybrany < 0 else _inv.sloty[_wybrany]
 	if wybrany_slot == null:
+		_btn_obejrzyj.disabled = true
 		_btn_uzyj.disabled = true
 		_btn_wyrzuc.disabled = true
 	else:
 		var it: Item = wybrany_slot.item
+		_btn_obejrzyj.disabled = false
 		_btn_uzyj.disabled = not _mozna_uzyc(it)
 		_btn_wyrzuc.disabled = false
 
@@ -387,6 +416,8 @@ func _styl_slotu(i: int) -> void:
 		st = _st_zwykly
 	(_sloty[i]["tlo"] as Panel).add_theme_stylebox_override("panel", st)
 
+
+# ---------- Mysz ----------
 
 func _on_slot_enter(i: int) -> void:
 	_hover = i
@@ -412,6 +443,9 @@ func _on_slot_input(event: InputEvent, i: int) -> void:
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
 		_wybierz(i)
 		_uzyj()
+	elif event.button_index == MOUSE_BUTTON_MIDDLE:
+		_wybierz(i)
+		_obejrzyj()
 
 
 func _wybierz(i: int) -> void:
@@ -421,6 +455,8 @@ func _wybierz(i: int) -> void:
 		_styl_slotu(poprzedni)
 	_odswiez()
 
+
+# ---------- Podpowiedź ----------
 
 func _pokaz_tip() -> void:
 	if not otwarty or _przeciaga or _hover < 0 or _hover >= _sloty.size():
@@ -443,6 +479,7 @@ func _pokaz_tip() -> void:
 	_ustaw_pozycje_tip()
 
 
+# Podpowiedź idzie za kursorem i nie wychodzi poza ekran
 func _ustaw_pozycje_tip() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var mysz := get_viewport().get_mouse_position()
@@ -461,11 +498,15 @@ func _ustaw_pozycje_tip() -> void:
 func _process(_delta: float) -> void:
 	if _tip.visible:
 		_ustaw_pozycje_tip()
+	# zaznaczony slot lekko pulsuje (martwe, wolne "oddychanie" ramki)
 	if _wybrany >= 0:
 		var p := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 2.2)
 		_st_wybrany.border_color = COL_SLOT_SEL_BORDER.darkened(0.4 * p)
 
 
+# ---------- Akcje ----------
+
+# Bateria = przedmiot ładujący latarkę albo ten wskazany w latarce (Battery Item / Battery Name)
 func _jest_bateria(item: Item, latarka: Node) -> bool:
 	if item.laduje_baterie > 0.0:
 		return true
@@ -490,6 +531,18 @@ func _mozna_uzyc(item: Item) -> bool:
 	return item.uzywalny
 
 
+# Otwiera podgląd 3D zaznaczonego przedmiotu (obracanie myszką na środku ekranu)
+func _obejrzyj() -> void:
+	if _wybrany < 0:
+		return
+	var slot = _inv.sloty[_wybrany]
+	if slot == null:
+		return
+	_tip.visible = false
+	if not _podglad.pokaz(slot.item):
+		print("Nie można obejrzeć '", slot.item.nazwa, "' (brak modelu, szczegóły w ostrzeżeniach)")
+
+
 func _uzyj() -> void:
 	if _wybrany < 0:
 		return
@@ -499,14 +552,16 @@ func _uzyj() -> void:
 	var item: Item = slot.item
 	var latarka := _latarka()
 
+	# bateria: zamykamy ekwipunek i odpalamy to samo, co przytrzymanie F (animacja wymiany).
+	# Baterię zabiera sama latarka (Flashlight._try_reload), więc tu niczego nie usuwamy.
 	if _jest_bateria(item, latarka):
 		if latarka == null or not latarka.unlocked or latarka.is_busy:
 			return
 		if gracz != null and gracz.has_method("_toggle_inventory"):
-			gracz.call("_toggle_inventory")
+			gracz.call("_toggle_inventory")   # zamyka okno i wraca do sterowania myszką
 		else:
 			zamknij()
-		latarka.call_deferred("probuj_przeladowac")
+		latarka.call_deferred("_try_reload")
 		return
 
 	if item.uzyj(gracz):
@@ -520,12 +575,15 @@ func _wyrzuc() -> void:
 	if slot == null:
 		return
 	var item: Item = slot.item
+	# usuwamy z ekwipunku tylko wtedy, gdy model faktycznie pojawił się na ziemi
 	if item.wyrzuc(gracz as Node3D):
 		print("Wyrzucono: ", item.nazwa)
 		_inv.usun(_wybrany, 1)
 	else:
 		print("Nie udało się wyrzucić '", item.nazwa, "' (szczegóły w ostrzeżeniach powyżej)")
 
+
+# ---------- Przeciąganie: przestawianie i układanie przedmiotów ----------
 
 func _drag_start(_poz: Vector2, i: int) -> Variant:
 	if _inv == null:
@@ -543,7 +601,7 @@ func _drag_start(_poz: Vector2, i: int) -> Variant:
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tr.size = Vector2(rozm, rozm)
-	tr.position = -tr.size * 0.5
+	tr.position = -tr.size * 0.5   # ikona wycentrowana na kursorze
 	tr.modulate = Color(1, 1, 1, 0.85)
 	podglad.add_child(tr)
 	(_sloty[i]["root"] as Control).set_drag_preview(podglad)
@@ -572,7 +630,7 @@ func _can_drop(_poz: Vector2, dane: Variant, i: int) -> bool:
 func _drop(_poz: Vector2, dane: Variant, i: int) -> void:
 	if not (dane is Dictionary and dane.has("z")):
 		return
-	_inv.przenies(int(dane["z"]), i)
+	_inv.przenies(int(dane["z"]), i)   # pusty slot = przeniesienie, ten sam przedmiot = scalenie, inny = zamiana
 	_wybrany = i if _inv.sloty[i] != null else -1
 	_odswiez()
 

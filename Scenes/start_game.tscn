@@ -2,14 +2,14 @@
 
 [ext_resource type="Texture2D" uid="uid://dg27nbnq2d5ya" path="res://Materials/drzewo.png" id="1_u7jam"]
 [ext_resource type="PackedScene" uid="uid://csrmuvwj0fefo" path="res://Scenes/character.tscn" id="2_xkwxp"]
-[ext_resource type="Script" uid="uid://bnq21uqy8jhwu" path="res://Skrypts/glitch_kamery.gd" id="3_bfrei"]
+[ext_resource type="Script" uid="uid://bnq21uqy8jhwu" path="res://Skrypts/Mechaniki strachu/glitch_kamery.gd" id="3_bfrei"]
 [ext_resource type="Shader" uid="uid://cntbcorcdrqgf" path="res://Shader/ps2_post.gdshader" id="3_ipysq"]
 [ext_resource type="PackedScene" uid="uid://5qvdsp11oe4g" path="res://Scenes/Flashlight.tscn" id="4_redxk"]
 [ext_resource type="PackedScene" uid="uid://v88iw06653es" path="res://Scenes/jumpscare.tscn" id="5_xkwxp"]
 [ext_resource type="Texture2D" uid="uid://con0eb3m0hohh" path="res://JUMP/kiszak2.png" id="6_u7jam"]
 [ext_resource type="PackedScene" uid="uid://butl8frkc3sqx" path="res://Scenes/słup.tscn" id="7_avyfn"]
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
-[ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/Bateria_Spawner.gd" id="9_uk4b7"]
+[ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/przedmioty/Bateria_Spawner.gd" id="9_uk4b7"]
 [ext_resource type="PackedScene" uid="uid://gaiaykn6junp" path="res://Scenes/mapa.tscn" id="11_pq64c"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
