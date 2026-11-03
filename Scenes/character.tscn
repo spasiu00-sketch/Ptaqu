@@ -674,22 +674,27 @@ script = SubResource("GDScript_7iw6i")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
+low_health_breath_min_db = 30.0
 crouch_toggle = true
+debug_footsteps = true
 breath_sound = ExtResource("4_2daya")
 heartbeat_sound = ExtResource("3_le1tg")
 jump_launch_ratio = 0.3
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
-transform = Transform3D(0.99797755, 0.0053022546, -0.06334572, -0.006189114, 0.9998855, -0.013812293, 0.06326523, 0.014176414, 0.997896, -0.0428108, 0.52046645, 0.06127333)
+transform = Transform3D(0.99797755, 0.0053022546, -0.06334572, -0.006189114, 0.9998855, -0.013812293, 0.06326523, 0.014176414, 0.997896, -0.0428108, 0.52046645, 0.1777249)
 shape = SubResource("CapsuleShape3D_bhunq")
 
 [node name="FootstepPlayer" type="AudioStreamPlayer3D" parent="CharacterBody3D" unique_id=2063876596]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8494679, 0)
 stream = ExtResource("4_wfnr8")
+area_mask = 1
 
 [node name="cienie_gracza" type="Node3D" parent="CharacterBody3D" unique_id=832067043]
 script = ExtResource("5_hgna0")
 klawisz_testowy = 4194332
+odsuniecie_kamery = 5.0
+podniesienie_kamery = 3.0
 
 [node name="TEST_MAIN_HERO_ANIMATIONS" type="Node3D" parent="CharacterBody3D/cienie_gracza" unique_id=1717953757]
 transform = Transform3D(-0.2, 0, -1.7484556e-08, 0, 0.2, 0, 1.7484556e-08, 0, -0.2, 0.6215259, 0, 0.24607122)

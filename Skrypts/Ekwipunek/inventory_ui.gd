@@ -506,18 +506,12 @@ func _process(_delta: float) -> void:
 
 # ---------- Akcje ----------
 
-# Bateria = przedmiot ładujący latarkę albo ten wskazany w latarce (Battery Item / Battery Name)
+# Bateria = przedmiot ładujący latarkę albo ten rozpoznany przez samą latarkę
+# (Battery Item / Battery Name), żeby UI i latarka zawsze zgadzały się co do tego, co jest baterią.
 func _jest_bateria(item: Item, latarka: Node) -> bool:
 	if item.laduje_baterie > 0.0:
 		return true
-	if latarka == null:
-		return false
-	var wzorzec: Item = latarka.get("battery_item")
-	if wzorzec != null and (item == wzorzec \
-			or (item.resource_path != "" and item.resource_path == wzorzec.resource_path)):
-		return true
-	var nazwa := String(latarka.get("battery_name")).strip_edges().to_lower()
-	return nazwa != "" and item.nazwa.strip_edges().to_lower() == nazwa
+	return latarka != null and bool(latarka.call("jest_bateria", item))
 
 
 func _latarka() -> Node:
@@ -553,7 +547,7 @@ func _uzyj() -> void:
 	var latarka := _latarka()
 
 	# bateria: zamykamy ekwipunek i odpalamy to samo, co przytrzymanie F (animacja wymiany).
-	# Baterię zabiera sama latarka (Flashlight._try_reload), więc tu niczego nie usuwamy.
+	# Baterię zabiera sama latarka (Flashlight.probuj_przeladowac), więc tu niczego nie usuwamy.
 	if _jest_bateria(item, latarka):
 		if latarka == null or not latarka.unlocked or latarka.is_busy:
 			return
@@ -561,7 +555,7 @@ func _uzyj() -> void:
 			gracz.call("_toggle_inventory")   # zamyka okno i wraca do sterowania myszką
 		else:
 			zamknij()
-		latarka.call_deferred("_try_reload")
+		latarka.call_deferred("probuj_przeladowac")
 		return
 
 	if item.uzyj(gracz):

@@ -56,6 +56,8 @@ void fragment() {
 const InventoryUIScript := preload("res://Skrypts/Ekwipunek/inventory_ui.gd")
 const HealthOverlayScript := preload("res://Skrypts/Postać/zdrowie_ekran.gd")
 const OczyScript := preload("res://Skrypts/Mechaniki strachu/oczy_zjawa.gd")
+const EkranSmierciScript := preload("res://Skrypts/Postać/ekran_smierci.gd")
+const AudioLoop := preload("res://Skrypts/MENU/audio_loop.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,
@@ -90,9 +92,7 @@ const INPUT_KEYS := {
 @export var regen_delay: float = 8.0
 @export var regen_speed: float = 1.5
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0
-@export var restart_on_death: bool = false
-@export var death_delay: float = 3.0
-@export var debug_health_keys: bool = true
+@export var debug_health_keys: bool = true   # F3 / F4, działa tylko w buildzie debug
 
 @export_group("Życie - oddech i kaszel")
 @export var low_health_breath_sound: AudioStream
@@ -174,7 +174,7 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var camera: Camera3D = $Camera3D
 
-var footstep_player = null
+var footstep_player: AudioStreamPlayer = null
 var breath_player: AudioStreamPlayer = null
 var heart_player: AudioStreamPlayer = null
 var interact_ray: RayCast3D = null
@@ -186,6 +186,10 @@ var inventory_ui = null
 var oczy = null
 
 var kontrola_zablokowana: bool = false
+
+# Używane przez inne skrypty (jumpscare.gd, cien_gracza.gd):
+var shake_offset: Vector2 = Vector2.ZERO          # chwilowy wstrząs kamery (h_offset / v_offset)
+var camera_extra_offset: Vector3 = Vector3.ZERO   # dodatkowe przesunięcie kamery (lokalnie)
 
 var health: float = 100.0
 var health_overlay = null
@@ -203,6 +207,7 @@ var _fatigue: float = 0.0
 var _fatigue_time: float = 0.0
 var _fatigue_blur_mat: ShaderMaterial = null
 var _fatigue_blur_rect: ColorRect = null
+var _fatigue_blur_copy: BackBufferCopy = null
 
 var _h_speed: float = 0.0
 var _moving: bool = false
@@ -231,6 +236,7 @@ var _jump_wait: float = 0.0
 var bob_czas := 0.0
 var _head_bob_offset := Vector3.ZERO
 var _head_bob_roll: float = 0.0
+var _applied_extra := Vector3.ZERO
 
 var held_base_pos := Vector3.ZERO
 var held_base_rot := Vector3.ZERO
@@ -322,6 +328,7 @@ func _setup_oczy() -> void:
 	oczy.min_przerwa = oczy_min_przerwa
 	oczy.max_przerwa = oczy_max_przerwa
 	oczy.klawisz_testowy = oczy_klawisz_testowy
+	oczy.tryb_testowy = OS.is_debug_build()
 	add_child(oczy)
 
 
@@ -432,6 +439,12 @@ func _setup_fatigue_blur() -> void:
 	_fatigue_blur_mat = ShaderMaterial.new()
 	_fatigue_blur_mat.shader = shader
 
+	# Bez kopii bufora ten shader czytałby ekran sprzed nakładki zdrowia i ją zamazywał.
+	_fatigue_blur_copy = BackBufferCopy.new()
+	_fatigue_blur_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_fatigue_blur_copy.visible = false
+	warstwa.add_child(_fatigue_blur_copy)
+
 	_fatigue_blur_rect = ColorRect.new()
 	_fatigue_blur_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fatigue_blur_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -473,8 +486,11 @@ func _update_fatigue_blur() -> void:
 	if _fatigue_blur_rect == null or _fatigue_blur_mat == null:
 		return
 	var blisko := pow(_fatigue, fatigue_effect_power)
-	_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
-	_fatigue_blur_rect.visible = blisko > 0.01
+	var widoczne := blisko > 0.01
+	if widoczne:
+		_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
+	_fatigue_blur_rect.visible = widoczne
+	_fatigue_blur_copy.visible = widoczne
 
 
 func _can_sprint() -> bool:
@@ -489,6 +505,11 @@ func is_resting() -> bool:
 	return _rest_left > 0.0
 
 
+# Pytane m.in. przez Flashlight: czy gracz może teraz sterować (F, przeładowanie).
+func moze_sterowac() -> bool:
+	return not _dead and not kontrola_zablokowana and not _inventory_open()
+
+
 func _setup_health() -> void:
 	health = max_health
 	_since_damage = 0.0
@@ -501,7 +522,7 @@ func _setup_health() -> void:
 	low_breath_player.name = "LowHealthBreathPlayer"
 	low_breath_player.volume_db = low_health_breath_min_db
 	add_child(low_breath_player)
-	_prepare_loop(low_health_breath_sound)
+	AudioLoop.zapetl(low_health_breath_sound)
 
 	cough_player = AudioStreamPlayer.new()
 	cough_player.name = "CoughPlayer"
@@ -606,62 +627,11 @@ func _die() -> void:
 	if health_overlay:
 		health_overlay.smierc()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_show_death_screen()
 
-
-func _show_death_screen() -> void:
-	# Ekran tworzony jest dopiero po śmierci, więc nie wymaga osobnej sceny UI.
-	var layer := CanvasLayer.new()
-	layer.name = "DeathScreen"
-	layer.layer = 100
-	add_child(layer)
-
-	var background := ColorRect.new()
-	background.name = "DarkBackground"
-	background.color = Color(0.0, 0.0, 0.0, 0.82)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(background)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.add_child(center)
-
-	var layout := VBoxContainer.new()
-	layout.alignment = BoxContainer.ALIGNMENT_CENTER
-	layout.add_theme_constant_override("separation", 28)
-	layout.custom_minimum_size = Vector2(420, 0)
-	center.add_child(layout)
-
-	var title := Label.new()
-	title.text = "UMARŁEŚ"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 58)
-	title.add_theme_color_override("font_color", Color(0.8, 0.05, 0.05))
-	layout.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Twoja historia dobiegła końca..."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 20)
-	subtitle.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
-	layout.add_child(subtitle)
-
-	var retry := Button.new()
-	retry.text = "SPRÓBUJ PONOWNIE"
-	retry.custom_minimum_size = Vector2(280, 58)
-	retry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	retry.add_theme_font_size_override("font_size", 22)
-	retry.pressed.connect(_restart_after_death)
-	layout.add_child(retry)
-
-
-func _restart_after_death() -> void:
-	# Autoload Inventory nie jest usuwany przy przeładowaniu sceny,
-	# dlatego czyścimy go przed rozpoczęciem nowej próby.
-	if Inventory != null and Inventory.has_method("reset"):
-		Inventory.reset()
-	get_tree().reload_current_scene()
+	# EkranSmierci sam czyści Inventory i przeładowuje scenę po kliknięciu przycisku.
+	var ekran := EkranSmierciScript.new()
+	add_child(ekran)
+	ekran.pokaz()
 
 
 func _inventory_open() -> bool:
@@ -792,7 +762,8 @@ func _add_key_action(action: String, key: Key) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if debug_health_keys and event is InputEventKey and event.pressed and not event.echo:
+	if debug_health_keys and OS.is_debug_build() \
+			and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F3:
 			take_damage(10.0)
 		elif event.physical_keycode == KEY_F4:
@@ -855,6 +826,15 @@ func give_flashlight() -> void:
 		set_process(true)
 
 
+# Wołane przez Item.wyrzuc() po wyrzuceniu latarki: odbiera ją graczowi i chowa model z ręki.
+func schowaj_latarke() -> void:
+	if flashlight:
+		flashlight.zabierz()
+	if held_root:
+		held_root.visible = false
+	mouse_input = Vector2.ZERO
+
+
 func _create_prompt_label() -> void:
 	var hud := CanvasLayer.new()
 	hud.layer = 2
@@ -882,12 +862,11 @@ func _update_prompt() -> void:
 
 
 func _setup_footstep_player() -> void:
-	footstep_player = find_child("FootstepPlayer", true, false)
+	footstep_player = find_child("FootstepPlayer", true, false) as AudioStreamPlayer
 	if footstep_player == null:
 		footstep_player = AudioStreamPlayer.new()
 		footstep_player.name = "FootstepPlayer"
 		add_child(footstep_player)
-		print("Utworzono FootstepPlayer w kodzie")
 	footstep_player.volume_db = footstep_volume_db
 	footstep_player.max_polyphony = 3
 
@@ -918,8 +897,8 @@ func _play_step() -> void:
 func _setup_sprint_audio() -> void:
 	breath_player = _make_loop_player("BreathPlayer", breath_volume_db)
 	heart_player = _make_loop_player("HeartPlayer", heartbeat_volume_db)
-	_prepare_loop(breath_sound)
-	_prepare_loop(heartbeat_sound)
+	AudioLoop.zapetl(breath_sound)
+	AudioLoop.zapetl(heartbeat_sound)
 	if breath_sound == null:
 		push_warning("Brak dźwięku sapania: uzupełnij 'Breath Sound' w Inspektorze gracza (grupa Sprint - sapanie)")
 	if heartbeat_sound == null:
@@ -934,13 +913,6 @@ func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlay
 		add_child(p)
 	p.volume_db = volume_db
 	return p
-
-
-func _prepare_loop(stream: AudioStream) -> void:
-	if stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
-	elif stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = true
 
 
 func _update_sprint_audio(delta: float) -> void:
@@ -1173,12 +1145,17 @@ func _update_head_bob(delta: float) -> void:
 	camera.position += nowy_poz - _head_bob_offset
 	_head_bob_offset = nowy_poz
 
+	# dodatkowe przesunięcie kamery (tryb testowy cien_gracza.gd), też płynnie
+	var nowy_extra := _applied_extra.lerp(camera_extra_offset, smooth)
+	camera.position += nowy_extra - _applied_extra
+	_applied_extra = nowy_extra
+
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_time += delta * (1.0 + blisko * 1.5)
-	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko
-	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko
+	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko + shake_offset.x
+	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko + shake_offset.y
 	var fatigue_roll := sin(_fatigue_time * 0.9) * fatigue_roll_amount * blisko
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll
