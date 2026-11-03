@@ -242,18 +242,20 @@ func _oczysc(wezel: Node) -> void:
 	wezel.set_script(null)
 
 
-# Skaluje model do ROZMIAR_MODELU i ustawia jego środek w punkcie obrotu
+# Skaluje model do ROZMIAR_MODELU i ustawia jego środek w punkcie obrotu.
+# Obrys liczony względem pivota (nie świata), więc obrót z poprzedniego oglądania nie psuje wyniku.
 func _wysrodkuj() -> void:
 	var meshe: Array = _model.find_children("*", "GeometryInstance3D", true, false)
 	if _model is GeometryInstance3D:
 		meshe.append(_model)
 
+	var do_pivota := _pivot.global_transform.affine_inverse()
 	var ma := false
 	var obrys := AABB()
 	for m in meshe:
 		var g := m as GeometryInstance3D
 		var a := g.get_aabb()
-		var t := g.global_transform
+		var t := do_pivota * g.global_transform
 		for i in 8:
 			var p := t * a.get_endpoint(i)
 			if not ma:

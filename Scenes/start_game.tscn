@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
 [ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/przedmioty/Bateria_Spawner.gd" id="9_uk4b7"]
 [ext_resource type="PackedScene" uid="uid://gaiaykn6junp" path="res://Scenes/mapa.tscn" id="11_pq64c"]
+[ext_resource type="Script" uid="uid://b6hh7chvgo55x" path="res://Skrypts/MENU/Niebo.gd" id="12_7qaaq"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
 albedo_texture = ExtResource("1_u7jam")
@@ -166,6 +167,12 @@ gizmo_extents = 0.57
 
 [node name="Mapa" parent="." unique_id=103550549 instance=ExtResource("11_pq64c")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.477344, 0, -2.104495)
+
+[node name="niebo" type="Node3D" parent="." unique_id=167968557]
+script = ExtResource("12_7qaaq")
+chmury_kolor = Color(0.19748065, 0.22647393, 0.31394115, 1)
+chmury_jasnosc = 0.15
+chmury_mgla_sila = 1.0
 
 [editable path="Latarka"]
 [editable path="Node3D4"]

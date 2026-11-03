@@ -1,5 +1,7 @@
 class_name EkranZdrowia
 extends CanvasLayer
+# Nakładka zdrowia: ciemna winieta, odbarwienie, rozmazanie, błysk obrażeń i czernienie przy śmierci.
+# Zmęczenie (rozmycie od sprintu) obsługuje sam gracz, osobną warstwą.
 
 @export var plynnosc: float = 3.0
 @export var pulsowanie: bool = true
@@ -20,7 +22,6 @@ uniform float pulse : hint_range(0.0, 1.0) = 0.0;
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform float death : hint_range(0.0, 1.0) = 0.0;
 uniform float blur : hint_range(0.0, 1.0) = 0.0;
-uniform float fatigue : hint_range(0.0, 1.0) = 0.0;
 uniform float blur_lod = 3.0;
 uniform vec3 blood_color : source_color = vec3(0.45, 0.0, 0.0);
 
@@ -28,18 +29,12 @@ void fragment() {
 	vec2 uv = SCREEN_UV;
 
 	float d = length(uv - 0.5) * 1.41421;
-	float dc = distance(uv, vec2(0.5));
 
 	float lod = 0.0;
 	if (blur > 0.001) {
 		lod = blur * blur_lod * (0.4 + 0.9 * d) * (1.0 + 0.4 * pulse);
 	}
-	if (fatigue > 0.001) {
-		lod = max(lod, fatigue * 3.5 * (0.4 + dc * 1.2));
-	}
 	vec3 col = textureLod(screen_tex, uv, lod).rgb;
-
-	col *= 1.0 - smoothstep(0.35, 0.9, dc) * fatigue * 0.6;
 
 	float start = mix(1.0, 0.0, intensity);
 	float v = smoothstep(start, start + 0.7, d);
@@ -66,7 +61,6 @@ var _kopia: BackBufferCopy
 var _mat: ShaderMaterial
 var _cel: float = 0.0
 var _aktualne: float = 0.0
-var _zmeczenie: float = 0.0
 var _blysk: float = 0.0
 var _smierc: float = 0.0
 var _martwy: bool = false
@@ -103,10 +97,6 @@ func ustaw_natezenie(natezenie: float, natychmiast: bool = false) -> void:
 		_aktualne = _cel
 
 
-func ustaw_zmeczenie(sila: float) -> void:
-	_zmeczenie = clampf(sila, 0.0, 1.0)
-
-
 func blysk_obrazen() -> void:
 	_blysk = 1.0
 
@@ -122,7 +112,7 @@ func _process(delta: float) -> void:
 	if _martwy:
 		_smierc = move_toward(_smierc, 1.0, delta * szybkosc_czernienia)
 
-	var aktywna := _aktualne > 0.002 or _blysk > 0.0 or _smierc > 0.0 or _zmeczenie > 0.01
+	var aktywna := _aktualne > 0.002 or _blysk > 0.0 or _smierc > 0.0
 	if aktywna != _aktywna:
 		_aktywna = aktywna
 		_rect.visible = aktywna
@@ -144,4 +134,3 @@ func _process(delta: float) -> void:
 	_mat.set_shader_parameter("flash", _blysk)
 	_mat.set_shader_parameter("death", _smierc)
 	_mat.set_shader_parameter("blur", rozmycie)
-	_mat.set_shader_parameter("fatigue", _zmeczenie)
