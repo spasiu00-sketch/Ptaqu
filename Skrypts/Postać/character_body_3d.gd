@@ -15,12 +15,13 @@ const IDLE_BREATH_AMOUNT := 0.002
 const IDLE_BREATH_SPEED := 1.5
 const CAPSULE_MIN_MARGIN := 0.01
 
-const BOB_FREQ := 2.4
-const BOB_AMP_Y := 0.04
-const BOB_AMP_X := 0.05
+# --- Poprawione ustawienia Head Bobbing (zmniejszona amplituda Y dla płynniejszego horyzontu) ---
+const BOB_FREQ := 1.8
+const BOB_AMP_Y := 0.012
+const BOB_AMP_X := 0.015
 const BOB_ROLL := 0.025
 const BOB_SMOOTH := 10.0
-const BOB_SPRINT_AMP := 1.6
+const BOB_SPRINT_AMP := 1.2
 const BOB_SPRINT_ROLL := 1.8
 const BOB_CROUCH_AMP := 0.5
 
@@ -173,6 +174,7 @@ const INPUT_KEYS := {
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var camera: Camera3D = $Camera3D
+var camera_base_pos: Vector3 = Vector3.ZERO
 
 var footstep_player: AudioStreamPlayer = null
 var breath_player: AudioStreamPlayer = null
@@ -249,6 +251,7 @@ var mouse_input := Vector2.ZERO
 
 
 func _ready() -> void:
+	camera_base_pos = camera.position
 	set_process(false)
 	_setup_input_actions()
 	_setup_footstep_player()
@@ -440,7 +443,6 @@ func _setup_fatigue_blur() -> void:
 	_fatigue_blur_mat = ShaderMaterial.new()
 	_fatigue_blur_mat.shader = shader
 
-	# Bez kopii bufora ten shader czytałby ekran sprzed nakładki zdrowia i ją zamazywał.
 	_fatigue_blur_copy = BackBufferCopy.new()
 	_fatigue_blur_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	_fatigue_blur_copy.visible = false
@@ -506,7 +508,6 @@ func is_resting() -> bool:
 	return _rest_left > 0.0
 
 
-# Pytane m.in. przez Flashlight: czy gracz może teraz sterować (F, przeładowanie).
 func moze_sterowac() -> bool:
 	return not _dead and not kontrola_zablokowana and not _inventory_open()
 
@@ -630,7 +631,6 @@ func _die() -> void:
 		health_overlay.smierc()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-	# EkranSmierci sam czyści Inventory i przeładowuje scenę po kliknięciu przycisku.
 	var ekran := EkranSmierciScript.new()
 	add_child(ekran)
 	ekran.pokaz()
@@ -737,6 +737,7 @@ func _set_crouching(state: bool) -> void:
 	set_process(true)
 
 
+# --- Poprawiona obsługa pozycji kamery przy kucaniu ---
 func _update_crouch_camera(delta: float) -> bool:
 	var target := -(_stand_h - _crouch_h) if _crouching else 0.0
 	if _cam_offset == target:
@@ -744,8 +745,9 @@ func _update_crouch_camera(delta: float) -> bool:
 	var new_offset := lerpf(_cam_offset, target, 1.0 - exp(-crouch_transition_speed * delta))
 	if absf(new_offset - target) < 0.001:
 		new_offset = target
-	camera.position.y += new_offset - _cam_offset
 	_cam_offset = new_offset
+
+	camera.position = camera_base_pos + Vector3(0.0, _cam_offset, 0.0) + _head_bob_offset + _applied_extra
 	return new_offset != target
 
 
@@ -828,7 +830,6 @@ func give_flashlight() -> void:
 		set_process(true)
 
 
-# Wołane przez Item.wyrzuc() po wyrzuceniu latarki: odbiera ją graczowi i chowa model z ręki.
 func schowaj_latarke() -> void:
 	if flashlight:
 		flashlight.zabierz()
@@ -1119,6 +1120,7 @@ func _apply_movement(delta: float) -> void:
 	velocity.z = horizontal.y
 
 
+# --- Bezpieczne obliczanie Head Bobbing względem pozycji bazowej (bez accumulowania '+=') ---
 func _update_head_bob(delta: float) -> void:
 	var cel_poz := Vector3.ZERO
 	var cel_roll := 0.0
@@ -1143,15 +1145,8 @@ func _update_head_bob(delta: float) -> void:
 
 	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
 
-	var nowy_poz := _head_bob_offset.lerp(cel_poz, smooth)
-	camera.position += nowy_poz - _head_bob_offset
-	_head_bob_offset = nowy_poz
-
-	# dodatkowe przesunięcie kamery (tryb testowy cien_gracza.gd), też płynnie
-	var nowy_extra := _applied_extra.lerp(camera_extra_offset, smooth)
-	camera.position += nowy_extra - _applied_extra
-	_applied_extra = nowy_extra
-
+	_head_bob_offset = _head_bob_offset.lerp(cel_poz, smooth)
+	_applied_extra = _applied_extra.lerp(camera_extra_offset, smooth)
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
 	var blisko := pow(_fatigue, fatigue_effect_power)
@@ -1161,6 +1156,7 @@ func _update_head_bob(delta: float) -> void:
 	var fatigue_roll := sin(_fatigue_time * 0.9) * fatigue_roll_amount * blisko
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll
+	camera.position = camera_base_pos + Vector3(0.0, _cam_offset, 0.0) + _head_bob_offset + _applied_extra
 
 
 func _disable_collisions(node: Node) -> void:

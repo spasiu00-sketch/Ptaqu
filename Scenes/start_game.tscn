@@ -33,25 +33,44 @@ albedo_texture_force_srgb = true
 [sub_resource type="BoxShape3D" id="BoxShape3D_sn0t7"]
 size = Vector3(24.33374, 0.9366455, 18.589355)
 
-[sub_resource type="Sky" id="Sky_6f8o3"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_u5pcf"]
+sky_top_color = Color(0, 0, 0, 1)
+sky_horizon_color = Color(0, 0, 0, 1)
+ground_bottom_color = Color(0.1893627, 0.13991472, 0.06347765, 1)
+ground_horizon_color = Color(0, 0, 0, 1)
+ground_curve = 0.27857646
+
+[sub_resource type="Sky" id="Sky_530l0"]
+sky_material = SubResource("ProceduralSkyMaterial_u5pcf")
 
 [sub_resource type="Environment" id="Environment_sn0t7"]
 background_mode = 2
-sky = SubResource("Sky_6f8o3")
+sky = SubResource("Sky_530l0")
+sky_custom_fov = 10.9
+ambient_light_color = Color(0.07444572, 0.07444573, 0.07444573, 1)
 glow_enabled = true
-glow_intensity = 0.01
+glow_normalized = true
+glow_intensity = 0.1
 glow_bloom = 0.1
-fog_light_energy = 0.9
-fog_sun_scatter = 0.2
-fog_aerial_perspective = 0.021
-fog_sky_affect = 0.0
-fog_height_density = 1.719
-volumetric_fog_density = 0.3802
-volumetric_fog_albedo = Color(0.5370987, 0.06610486, 0.016736297, 1)
-volumetric_fog_emission = Color(0.5254902, 0.13725491, 0.023529412, 1)
-volumetric_fog_emission_energy = 0.0
+glow_blend_mode = 2
+glow_hdr_threshold = 1.07
+fog_enabled = true
+fog_light_color = Color(0.274094, 0.06583651, 0.0697509, 1)
+fog_light_energy = 0.97
+fog_sun_scatter = 0.05
+fog_depth_curve = 0.9330324
+volumetric_fog_enabled = true
+volumetric_fog_density = 1.49
+volumetric_fog_albedo = Color(0.662391, 0.09044918, 0.024525795, 1)
+volumetric_fog_emission = Color(0.37465903, 0.08733036, 0.011461785, 1)
+volumetric_fog_emission_energy = 0.2
+volumetric_fog_gi_inject = 0.83
+volumetric_fog_anisotropy = -0.31
+volumetric_fog_length = 1.0
+volumetric_fog_detail_spread = 0.8408964
+volumetric_fog_ambient_inject = 3.09
 adjustment_enabled = true
-adjustment_contrast = 1.155
+adjustment_brightness = 0.78
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_bhunq"]
 
@@ -78,10 +97,9 @@ script = ExtResource("15_ihq08")
 script = ExtResource("12_7qaaq")
 ksiezyc_odleglosc = 700.0
 ksiezyc_rozmiar = 30.0
-swiatlo_energia = 0.08
+swiatlo_energia = 0.15
 chmury_kolor = Color(0.19748065, 0.22647393, 0.31394115, 1)
 chmury_jasnosc = 0.15
-chmury_mgla_sila = 1.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=821448270]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.099337, 1.4672976, 17.83701)

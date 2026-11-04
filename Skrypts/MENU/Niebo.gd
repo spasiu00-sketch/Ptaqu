@@ -37,7 +37,7 @@ extends Node3D
 @export_range(0.0, 1.0, 0.01) var chmury_jasnosc: float = 0.3   # ogólne przyciemnienie chmur (0 = czarne, 1 = bez zmian)
 
 @export_group("Chmury - mgła")
-@export_range(0.0, 1.0, 0.05) var chmury_mgla_sila: float = 0.8       # ile maksymalnie chmura "wchodzi" w kolor mgły (0 = bez mgły)
+@export_range(0.0, 1.0, 0.05) var chmury_mgla_sila: float = 0.0      # ile maksymalnie chmura "wchodzi" w kolor mgły (0 = bez mgły)
 @export var chmury_mgla_mnoznik: float = 0.35                          # ułamek gęstości mgły świata (większy = bardziej rozmyte)
 @export var chmury_mgla_gestosc: float = 0.007                         # gęstość, gdy w scenie nie ma WorldEnvironment z mgłą
 @export var chmury_mgla_kolor: Color = Color(0.70, 0.75, 0.80)         # kolor, gdy w scenie nie ma WorldEnvironment

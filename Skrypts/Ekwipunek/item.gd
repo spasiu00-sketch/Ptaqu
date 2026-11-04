@@ -52,10 +52,12 @@ func wyrzuc(gracz: Node3D) -> bool:
 		push_warning("Item '%s': brak modelu do wyrzucenia (ustaw 'Scena Swiata' albo najpierw podnieś przedmiot z ziemi)" % nazwa)
 		return false
 
+	var punkt := _znajdz_miejsce(gracz)
 	gracz.get_tree().current_scene.add_child(instancja)
-	instancja.global_position = _znajdz_miejsce(gracz)
 	instancja.global_rotation.y = gracz.global_rotation.y
-
+	instancja.global_position = punkt
+	_ustaw_na_punkcie(instancja, punkt)
+	
 	if not _ustaw_przedmiot(instancja, bateria, instancja):
 		push_warning("Item '%s': w modelu nie znaleziono przedmiot.gd, nie da się go podnieść" % nazwa)
 
@@ -102,3 +104,21 @@ func _znajdz_miejsce(gracz: Node3D) -> Vector3:
 	if podloga.is_empty():
 		return gracz.global_position + przod * dystans
 	return podloga["position"]
+
+# Przesuwa cały model tak, by jego środek (XZ) był w 'punkt', a spód leżał na podłodze.
+# Niweluje offset modelu względem origin korzenia sceny przedmiotu.
+func _ustaw_na_punkcie(korzen: Node3D, punkt: Vector3) -> void:
+	var aabb := AABB()
+	var jest := false
+	for m in korzen.find_children("*", "GeometryInstance3D", true, false):
+		var g := m as GeometryInstance3D
+		var a: AABB = g.global_transform * g.get_aabb()
+		aabb = a if not jest else aabb.merge(a)
+		jest = true
+	if not jest:
+		return
+	var srodek := aabb.get_center()
+	korzen.global_position += Vector3(
+			punkt.x - srodek.x,
+			punkt.y - aabb.position.y,
+			punkt.z - srodek.z)

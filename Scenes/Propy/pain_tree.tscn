@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://dajnviagy33ne"]
+
+[ext_resource type="PackedScene" uid="uid://s2g6o6d70o0f" path="res://Models/MAPA/pain_tree.glb" id="1_h6osm"]
+[ext_resource type="Script" uid="uid://dbndw8p05yam7" path="res://addons/terrain_3d/utils/terrain_3d_objects.gd" id="1_ng61o"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
+radius = 0.13476563
+height = 1.3271484
+
+[node name="Node3D" type="Node3D" unique_id=576340379]
+
+[node name="Terrain3DObjects" type="Node3D" parent="." unique_id=103179606]
+script = ExtResource("1_ng61o")
+metadata/_custom_type_script = "uid://dbndw8p05yam7"
+
+[node name="pain_tree" parent="Terrain3DObjects" unique_id=1629393327 instance=ExtResource("1_h6osm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.27116764, 1.1920929e-07, -0.14769006)
+
+[node name="Pine_tree" parent="Terrain3DObjects/pain_tree" index="0" unique_id=115831964]
+transform = Transform3D(0.71884906, 0, 0, 0, 4.2846743e-08, -0.71884906, 0, 0.71884906, 4.2846743e-08, -0.28593123, 0, 0.12177849)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Terrain3DObjects/pain_tree/Pine_tree" index="0" unique_id=1891870482]
+transform = Transform3D(1.3911127, 0, 0, 0, 8.291678e-08, 1.3911127, 0, -1.3911127, 8.291678e-08, 0.39776257, -0.1694076, -1.009748e-08)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain3DObjects/pain_tree/Pine_tree/StaticBody3D" unique_id=1536657500]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2711264, 0.49658206, 0.11703694)
+shape = SubResource("CapsuleShape3D_bhunq")
+
+[editable path="Terrain3DObjects/pain_tree"]

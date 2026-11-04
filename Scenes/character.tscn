@@ -1187,8 +1187,14 @@ item = ExtResource("18_rtvxd")
 
 [node name="HeldFlashlight" type="SpotLight3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Untitled_test animacji" unique_id=2097009686]
 transform = Transform3D(-5.4639236e-07, 0, -12.5, 0, 12.5, 0, 12.5, 0, -5.4639236e-07, 5.4493685, -0.036695957, 0.11889601)
-light_color = Color(1, 0.8666667, 1, 1)
-spot_range = 10.0
+light_color = Color(0.94355893, 0.84431857, 0.87917024, 1)
+light_energy = 3.0
+light_volumetric_fog_energy = 0.0
+light_specular = 0.2
+spot_range = 13.869
+spot_attenuation = -0.24
+spot_angle = 64.21
+spot_angle_attenuation = 1.5691682
 script = ExtResource("3_wa5vi")
 reload_sound = ExtResource("5_jb3kq")
 toggle_sound = ExtResource("6_jb3kq")
