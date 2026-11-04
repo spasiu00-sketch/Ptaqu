@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dyin0y7waqing"]
 
 [ext_resource type="Texture2D" uid="uid://dg27nbnq2d5ya" path="res://Materials/drzewo.png" id="1_u7jam"]
+[ext_resource type="Texture2D" uid="uid://blc0tql5lgh8q" path="res://Memes/mem1.png" id="2_ihq08"]
 [ext_resource type="PackedScene" uid="uid://csrmuvwj0fefo" path="res://Scenes/character.tscn" id="2_xkwxp"]
 [ext_resource type="Script" uid="uid://bnq21uqy8jhwu" path="res://Skrypts/Mechaniki strachu/glitch_kamery.gd" id="3_bfrei"]
 [ext_resource type="Shader" uid="uid://cntbcorcdrqgf" path="res://Shader/ps2_post.gdshader" id="3_ipysq"]
@@ -9,6 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://con0eb3m0hohh" path="res://JUMP/kiszak2.png" id="6_u7jam"]
 [ext_resource type="PackedScene" uid="uid://butl8frkc3sqx" path="res://Scenes/słup.tscn" id="7_avyfn"]
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
+[ext_resource type="Script" uid="uid://dr1pcyofeho26" path="res://Skrypts/Interakcja/Migotanie_swiateł.gd" id="9_u5pcf"]
 [ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/przedmioty/Bateria_Spawner.gd" id="9_uk4b7"]
 [ext_resource type="Script" uid="uid://b6hh7chvgo55x" path="res://Skrypts/MENU/Niebo.gd" id="12_7qaaq"]
 [ext_resource type="Script" uid="uid://7eodsibmmf2u" path="res://Skrypts/MENU/Intro.gd" id="14_u5pcf"]
@@ -89,6 +91,18 @@ shader_parameter/aberration = 0.0015
 
 [node name="Intro" type="CanvasLayer" parent="." unique_id=2136756777]
 script = ExtResource("14_u5pcf")
+nazwa_postaci = "Bartek Sergafin"
+podtytul = "elektronik, 24 lat"
+tekst = "---
+Była północ. Wiatr wył w kominach, a na grupie na Messengerze dawno już zgasły ostatnie duszki. Tylko Bartek Sergafin siedział w ciemnym pokoju, wpatrując się w ekran telefonu. Zadanie było proste, a zarazem idiotyczne – żeby zaliczyć rok u najgroźniejszego belfra w mieście, musiał wejść do Opuszczonego Zespołu Szkół im. Przepalonego ptaqa i wynieść stamtąd legendarny dziennik elektroniczny, w którym oceny same zmieniały się na jedynki.
+Bartek nie był zwykłym uczniem. Na tę misję ubrał się w swój ulubiony stratosferyczny secik bojowy: stożkowy kapelusz ryżowy (chroniący przed mind-fuckiem i psychiką stalkerów) oraz koszulkę z napisem „24h Le Mans”, bo wiedział, że w tej szkole trzeba uciekać szybko, a czas reakcji musi być lepszy niż ping w lolu.
+[Obrazek]
+---
+W jego głowie, zamiast zdrowego rozsądku i paniki, siedział niezwykle charyzmatyczny, lekko nadpobudliwy hiszpański wujek (lub po prostu losowy, śmieszny Hiszpan), który co chwilę krzyczał przez wyimaginowane radio: „¡Ándale, ándale, Bartek, uciekaj, bo torreador idzie!”.
+---
+Zamiast profesjonalnego sprzętu przetrwania, jego jedynym ekwipunkiem bojowym był legendarny zestaw taktyczny: plastikowa latarka na trzy duże baterie R20, kupiona na bazarku za piątkę, która mrugała w rytm hiszpańskiego techno, oraz – rzecz jasna – stożkowy kapelusz ryżowy i koszulka z wyścigu Le Mans, które dodawały mu +10 do aerodynamiki ucieczki."
+czas_wejscia = 4.0
+strony_obrazkowe = Array[Texture2D]([ExtResource("2_ihq08")])
 
 [node name="Pauza" type="CanvasLayer" parent="." unique_id=1580047611]
 script = ExtResource("15_ihq08")
@@ -150,7 +164,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 1.4589354, 18.924
 transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 1.4421431, 18.933475)
 
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0.8155203, 16.45233, -1.8138618)
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0.8155203, 12.390602, -1.8138618)
 light_color = Color(0.9990652, 0.9957443, 0.9943822, 1)
 light_energy = 23.635
 light_indirect_energy = 1.05
@@ -159,6 +173,7 @@ shadow_enabled = true
 shadow_bias = 10.0
 distance_fade_enabled = true
 spot_range = 25.086533
+script = ExtResource("9_u5pcf")
 
 [node name="SpotLight3D" type="SpotLight3D" parent="SpotLight3D" unique_id=1322380709]
 transform = Transform3D(1, 0, 0, 0, 0.9990253, 0.04414233, 0, -0.04414233, 0.9990253, -12.797752, -8.043758, 2.7929988)

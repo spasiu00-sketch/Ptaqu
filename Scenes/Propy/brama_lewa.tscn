@@ -43,7 +43,7 @@ blend_shape_mode = 0
 shadow_mesh = SubResource("ArrayMesh_n85mt")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_riqys"]
-size = Vector3(0.3171997, 1.59906, 0.22558594)
+size = Vector3(0.3171997, 1.59906, 0.2524414)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qi72r"]
 resource_name = "Material.008"
@@ -86,7 +86,7 @@ blend_shape_mode = 0
 shadow_mesh = SubResource("ArrayMesh_20un8")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_bhunq"]
-size = Vector3(2.1340027, 1.557373, 0.2584839)
+size = Vector3(2.154892, 1.611084, 0.2584839)
 
 [node name="Brama_lewa" type="Node3D" unique_id=1877308856]
 
@@ -100,7 +100,7 @@ mesh = SubResource("ArrayMesh_owwlm")
 [node name="StaticBody3D" type="StaticBody3D" parent="gate_l_s/gate_P_003" unique_id=1668584369]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="gate_l_s/gate_P_003/StaticBody3D" unique_id=1076626507]
-transform = Transform3D(8.860515, 0, 0, 0, 8.860515, 0, 0, 0, 8.860515, -20.339874, 5.7660613, 0.37410912)
+transform = Transform3D(8.860515, 0, 0, 0, 8.860515, 0, 0, 0, 8.860515, -20.339874, 5.7660613, -0.1413901)
 shape = SubResource("BoxShape3D_riqys")
 
 [node name="gate_l" type="Node3D" parent="." unique_id=1623325685]
@@ -114,5 +114,5 @@ transform = Transform3D(0.11286026, 0, 0, 0, 0.11286026, 0, 0, 0, 0.11286026, 2.
 mesh = SubResource("ArrayMesh_q3eoh")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="gate_l/AnimatableBody3D" unique_id=1542011515]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1006317, 0.010864258, -0.0031433105)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0901871, 0.037475586, -0.0031433105)
 shape = SubResource("BoxShape3D_bhunq")

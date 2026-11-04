@@ -4,7 +4,18 @@ extends Node
 signal zmieniono
 
 const ROZMIAR := 20
-var sloty: Array[InventorySlot] = []   # każdy slot: InventorySlot albo null
+
+
+class Slot:
+	var item: Item
+	var ilosc: int
+
+	func _init(p_item: Item, p_ilosc: int) -> void:
+		item = p_item
+		ilosc = p_ilosc
+
+
+var sloty: Array[Slot] = []   # pusty slot = null
 
 
 func _ready() -> void:
@@ -12,26 +23,26 @@ func _ready() -> void:
 	sloty.fill(null)
 
 
-# Czyści cały ekwipunek (autoload przeżywa przeładowanie sceny, np. po śmierci gracza)
+# Czyści cały ekwipunek (autoload przeżywa przeładowanie sceny)
 func reset() -> void:
 	sloty.fill(null)
 	zmieniono.emit()
 
 
-# Przenosi przedmiot ze slotu 'z' do slotu 'do' (przeciąganie w ekwipunku):
-# pusty cel = przeniesienie, ten sam przedmiot = scalenie stosów (do limitu), inny = zamiana miejscami
+# Przenosi przedmiot ze slotu 'z' do 'do': pusty cel = przeniesienie,
+# ten sam przedmiot = scalenie stosów (do limitu), inny = zamiana miejscami
 func przenies(z: int, do: int) -> void:
 	if z == do or z < 0 or z >= ROZMIAR or do < 0 or do >= ROZMIAR:
 		return
-	var a: InventorySlot = sloty[z]
-	var b: InventorySlot = sloty[do]
+	var a: Slot = sloty[z]
+	var b: Slot = sloty[do]
 	if a == null:
 		return
 
 	if b != null and _to_samo(a.item, b.item):
-		var wolne: int = _max_w_slocie(a.item) - b.ilosc
+		var wolne := _max_w_slocie(a.item) - b.ilosc
 		if wolne > 0:
-			var ile_przenosimy: int = mini(wolne, a.ilosc)
+			var ile_przenosimy := mini(wolne, a.ilosc)
 			b.ilosc += ile_przenosimy
 			a.ilosc -= ile_przenosimy
 			if a.ilosc <= 0:
@@ -49,7 +60,6 @@ func _max_w_slocie(item: Item) -> int:
 
 
 # Ten sam przedmiot = ten sam obiekt albo ten sam plik .tres
-# (chroni przed sytuacją, gdy ta sama bateria istnieje jako dwie osobne instancje zasobu)
 func _to_samo(a: Item, b: Item) -> bool:
 	if a == null or b == null:
 		return false
@@ -83,7 +93,7 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 		if ilosc <= 0:
 			break
 		if slot != null and _to_samo(slot.item, item) and slot.ilosc < na_slot:
-			var dodane: int = mini(na_slot - slot.ilosc, ilosc)
+			var dodane := mini(na_slot - slot.ilosc, ilosc)
 			slot.ilosc += dodane
 			ilosc -= dodane
 
@@ -92,8 +102,8 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 		if ilosc <= 0:
 			break
 		if sloty[i] == null:
-			var dodane: int = mini(na_slot, ilosc)
-			sloty[i] = InventorySlot.new(item, dodane)
+			var dodane := mini(na_slot, ilosc)
+			sloty[i] = Slot.new(item, dodane)
 			ilosc -= dodane
 
 	zmieniono.emit()
@@ -103,7 +113,7 @@ func dodaj(item: Item, ilosc: int = 1) -> bool:
 func usun(indeks: int, ilosc: int = 1) -> void:
 	if indeks < 0 or indeks >= ROZMIAR:
 		return
-	var slot: InventorySlot = sloty[indeks]
+	var slot: Slot = sloty[indeks]
 	if slot == null:
 		return
 	slot.ilosc -= ilosc
@@ -120,9 +130,9 @@ func usun_item(item: Item, ilosc: int = 1) -> bool:
 	for i in range(ROZMIAR - 1, -1, -1):
 		if ilosc <= 0:
 			break
-		var slot: InventorySlot = sloty[i]
+		var slot: Slot = sloty[i]
 		if slot != null and _to_samo(slot.item, item):
-			var zabrane: int = mini(slot.ilosc, ilosc)
+			var zabrane := mini(slot.ilosc, ilosc)
 			usun(i, zabrane)
 			ilosc -= zabrane
 	return true

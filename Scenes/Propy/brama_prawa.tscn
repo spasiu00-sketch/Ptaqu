@@ -86,7 +86,7 @@ blend_shape_mode = 0
 shadow_mesh = SubResource("ArrayMesh_npqct")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_riqys"]
-size = Vector3(2.1550598, 1.3984833, 0.120666504)
+size = Vector3(2.1483307, 1.4166317, 0.120666504)
 
 [node name="Node3D" type="Node3D" unique_id=1270268199]
 
@@ -115,5 +115,5 @@ transform = Transform3D(0.11286026, 0, 0, 0, 0.11286026, 0, 0, 0, 0.11286026, -2
 mesh = SubResource("ArrayMesh_ockqj")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="gate_p/AnimatableBody3D" unique_id=1504516793]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0193549, -0.04726398, -0.0048726797)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0227195, -0.05633819, -0.0048726797)
 shape = SubResource("BoxShape3D_riqys")

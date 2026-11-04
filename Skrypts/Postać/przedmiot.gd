@@ -37,11 +37,7 @@ func interact(player: Node) -> void:
 	_przygotuj_item(cel)
 
 	if item != null:
-		var inv := get_node_or_null("/root/Inventory")
-		if inv == null:
-			print("[przedmiot] BŁĄD: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload)")
-			return
-		if not inv.dodaj(item, ilosc):
+		if not Inventory.dodaj(item, ilosc):
 			print("[przedmiot] brak miejsca w ekwipunku na '%s'" % item.nazwa)
 			return   # brak miejsca: przedmiot zostaje na ziemi
 		print("[przedmiot] dodano do ekwipunku: %s x%d" % [item.nazwa, ilosc])

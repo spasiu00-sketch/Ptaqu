@@ -171,8 +171,6 @@ const INPUT_KEYS := {
 @export var oczy_max_przerwa: float = 70.0
 @export var oczy_klawisz_testowy: Key = KEY_F5
 
-var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
-
 @onready var camera: Camera3D = $Camera3D
 var camera_base_pos: Vector3 = Vector3.ZERO
 
@@ -1052,7 +1050,7 @@ func _physics_dead(delta: float) -> void:
 	velocity.x = horizontal.x
 	velocity.z = horizontal.y
 	if not is_on_floor():
-		velocity.y -= gravity * delta
+		velocity += get_gravity() * delta
 	move_and_slide()
 
 	_h_speed = 0.0
@@ -1067,7 +1065,7 @@ func _physics_dead(delta: float) -> void:
 
 func _apply_gravity_and_jump(delta: float) -> void:
 	if not is_on_floor():
-		velocity.y -= gravity * delta
+		velocity += get_gravity() * delta
 		_jump_pending = false
 		return
 

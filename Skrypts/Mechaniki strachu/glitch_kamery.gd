@@ -42,8 +42,7 @@ func _ready() -> void:
 	_mat.shader = shader
 	_mat.set_shader_parameter("strength", 0.0)
 
-	# Bez tego glitch widziałby ekran sprzed nakładki zdrowia (Godot kopiuje ekran tylko raz)
-	# i na czas glitcha znikałyby ciemna winieta oraz rozmazanie. Włączony tylko podczas glitcha.
+	# Bez tego glitch nie widzi wyniku wcześniejszych nakładek (np. EkranZdrowia) na tej samej warstwie.
 	_kopia = BackBufferCopy.new()
 	_kopia.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	_kopia.visible = false
@@ -72,11 +71,6 @@ func _losuj_przerwe() -> void:
 		print("glitch: następny za %.0f s" % _do_nastepnego)
 
 
-func _ustaw_widocznosc(widoczny: bool) -> void:
-	_rect.visible = widoczny
-	_kopia.visible = widoczny
-
-
 # Wywołaj ręcznie, żeby wymusić glitch (czas <= 0 = losowy)
 func trigger(czas: float = -1.0, sila: float = -1.0) -> void:
 	if _mat == null:
@@ -84,7 +78,8 @@ func trigger(czas: float = -1.0, sila: float = -1.0) -> void:
 	_czas_trwania = czas if czas > 0.0 else randf_range(min_czas, max_czas)
 	_pozostalo = _czas_trwania
 	_mat.set_shader_parameter("strength", sila if sila >= 0.0 else max_sila)
-	_ustaw_widocznosc(true)
+	_kopia.visible = true
+	_rect.visible = true
 	if dzwiek != null:
 		_sfx.stream = dzwiek
 		_sfx.play()
@@ -100,7 +95,8 @@ func _process(delta: float) -> void:
 		_pozostalo -= delta
 		if _pozostalo <= 0.0:
 			_mat.set_shader_parameter("strength", 0.0)
-			_ustaw_widocznosc(false)
+			_rect.visible = false
+			_kopia.visible = false
 			_losuj_przerwe()
 			return
 		# siła drga w trakcie glitcha

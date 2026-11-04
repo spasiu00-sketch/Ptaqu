@@ -1,25 +1,21 @@
 extends CanvasLayer
-# Intro po starcie nowej gry: czarne tło pojawia się powoli, napisy wchodzą fade'em
-# linia po linii z góry na dół, potem strona powoli zanika, a na końcu całe intro.
-# Samo przechodzi dalej (czas czytania zależy od długości tekstu). SPACJA (lub ESC) = pomiń.
-#
-# Użycie: w scenie gry (start_game.tscn) dodaj zwykły Node o nazwie "Intro",
-# przypisz ten skrypt i wszystko edytuj w Inspektorze.
-# Tekst: każda linia to osobny napis, strony rozdzielaj linią  ---
-# Intro pokazuje się raz na uruchomienie gry (po śmierci i ZRESETUJ nie wraca).
+# Intro po starcie nowej gry: tło pojawia się powoli, napisy wchodzą fade'em,
+# a w miejscu [OBRAZEK] w treści płynnie pojawia się grafika z Inspektora na tej samej stronie.
+# SPACJA (lub ESC) = pomiń.
 
 @export_group("Treść")
 @export var nazwa_postaci: String = "IMIĘ NAZWISKO"
 @export var podtytul: String = "uczeń, 17 lat"
 @export_multiline var tekst: String = """Wpisz tutaj historię postaci.
 Każda linia pojawia się osobno, jedna pod drugą.
+[OBRAZEK]
 ---
 Drugą stronę oddzielasz linią z trzema myślnikami.
 ---
 Trzecia strona. Tyle ich, ile chcesz."""
 
 @export_group("Wygląd")
-@export var font: Font                          # wrzuć tu Monocraft.ttf
+@export var font: Font                                     # wrzuć tu Monocraft.ttf
 @export var rozmiar_tytulu: int = 64
 @export var rozmiar_tekstu: int = 30
 @export var rozmiar_podpowiedzi: int = 20
@@ -29,8 +25,8 @@ Trzecia strona. Tyle ich, ile chcesz."""
 
 @export_group("Tempo")
 @export var czas_wejscia: float = 2.0                # tło intro pojawia się z gry (s)
-@export var czas_pojawiania_linii: float = 1.4       # ile trwa fade jednej linii (s)
-@export var odstep_miedzy_liniami: float = 1.0       # co ile s startuje następna linia
+@export var czas_pojawiania_linii: float = 1.4       # ile trwa fade jednej linii / obrazka (s)
+@export var odstep_miedzy_liniami: float = 1.0       # co ile s startuje następny element
 @export var czas_czytania_na_znak: float = 0.06      # s na znak: czas, jaki strona stoi po pojawieniu się
 @export var min_czas_czytania: float = 2.5           # minimalny czas stania strony (s)
 @export var czas_znikania_strony: float = 1.5        # fade out strony (s)
@@ -38,11 +34,15 @@ Trzecia strona. Tyle ich, ile chcesz."""
 @export var czas_zakonczenia: float = 2.5            # końcowy, powolny fade całego intro (s)
 @export var czas_skipu: float = 0.6                  # fade po wciśnięciu SPACJI (s)
 
+@export_group("Obrazki z Inspektora")
+@export var strony_obrazkowe: Array[Texture2D] = []  # Wrzuć tu grafiki w kolejności występowania [OBRAZEK] w tekście
+@export var wysokosc_obrazka: float = 280.0          # Wysokość wyświetlanego obrazka w pikselach
+
 @export_group("Zachowanie")
 @export var pauzuj_gre: bool = true                  # gra stoi w miejscu na czas intro
 @export var pokazuj_przy_kazdym_starcie: bool = false   # true = także po śmierci / restarcie sceny
 
-const GRUPA := "intro_aktywne"   # pauza.gd po tym wie, że nie wolno otwierać menu
+const GRUPA := "intro_aktywne"
 
 static var _pokazane: bool = false
 
@@ -52,13 +52,14 @@ var _naglowek: Array[CanvasItem] = []
 var _strona_box: VBoxContainer
 var _hint: Label
 var _strony: PackedStringArray = []
-var _linie: Array[Label] = []
+var _linie: Array[CanvasItem] = []
 var _tweeny: Array[Tween] = []
 var _koniec: bool = false
+var _globalny_indeks_obrazka: int = 0
 
 
 func _ready() -> void:
-	layer = 95   # nad ekranem śmierci (90), pod jumpscare (100+)
+	layer = 95
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if _pokazane and not pokazuj_przy_kazdym_starcie:
 		queue_free()
@@ -70,7 +71,7 @@ func _ready() -> void:
 	_pokazane = true
 	add_to_group(GRUPA)
 	_zbuduj()
-	_start.call_deferred()   # po _ready gracza, który ustawia kursor
+	_start.call_deferred()
 
 
 func _podziel(txt: String) -> PackedStringArray:
@@ -105,7 +106,6 @@ func _etykieta(txt: String, rozmiar: int, kolor: Color) -> Label:
 	l.add_theme_font_override("font", _f)
 	l.add_theme_font_size_override("font_size", rozmiar)
 	l.add_theme_color_override("font_color", kolor)
-	# cień jak w Minecrafcie: przyciemniona kopia koloru, przesunięta w dół i w prawo
 	l.add_theme_color_override("font_shadow_color", Color(kolor.darkened(0.75), 1.0))
 	l.add_theme_constant_override("shadow_offset_x", maxi(rozmiar / 8, 2))
 	l.add_theme_constant_override("shadow_offset_y", maxi(rozmiar / 8, 2))
@@ -143,7 +143,6 @@ func _zbuduj() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(box)
 
-	# nagłówek (pojawia się raz, na początku, i stoi do końca intro)
 	var tytul := _etykieta(nazwa_postaci, rozmiar_tytulu, kolor_tytulu)
 	box.add_child(tytul)
 	_naglowek.append(tytul)
@@ -161,7 +160,6 @@ func _zbuduj() -> void:
 	box.add_child(linia)
 	_naglowek.append(linia)
 
-	# treść: linie jedna pod drugą, układ stały (puste, dopóki nie wjadą)
 	_strona_box = VBoxContainer.new()
 	_strona_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_strona_box.add_theme_constant_override("separation", 14)
@@ -184,12 +182,32 @@ func _zbuduj_strone(txt: String) -> void:
 
 	for surowa in txt.split("\n"):
 		var s := surowa.strip_edges()
+		
+		# Jeśli w linii wpisano [OBRAZEK], wstawiamy TextureRect bezpośrednio w przepływ strony
+		if s.to_lower().contains("[obrazek]") or s.to_lower() == "img":
+			if _globalny_indeks_obrazka < strony_obrazkowe.size() and strony_obrazkowe[_globalny_indeks_obrazka] != null:
+				var tr := TextureRect.new()
+				tr.texture = strony_obrazkowe[_globalny_indeks_obrazka]
+				_globalny_indeks_obrazka += 1
+				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				tr.custom_minimum_size = Vector2(0, wysokosc_obrazka)
+				tr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				tr.size_flags_vertical = Control.SIZE_EXPAND_FILL
+				tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				tr.modulate.a = 0.0
+				_strona_box.add_child(tr)
+				_linie.append(tr)
+			continue
+
 		if s == "":
 			var odstep := Control.new()
 			odstep.custom_minimum_size = Vector2(0, rozmiar_tekstu)
 			odstep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_strona_box.add_child(odstep)
 			continue
+			
 		var l := _etykieta(s, rozmiar_tekstu, kolor_tekstu)
 		_strona_box.add_child(l)
 		_linie.append(l)
@@ -222,7 +240,7 @@ func _przebieg() -> void:
 	if _koniec:
 		return
 
-	# 2) nagłówek: tytuł, podtytuł, linia (z góry na dół)
+	# 2) nagłówek: tytuł, podtytuł, linia
 	_fade(_hint, 0.6, czas_pojawiania_linii)
 	for w in _naglowek:
 		_fade(w, 1.0, czas_pojawiania_linii)
@@ -233,9 +251,10 @@ func _przebieg() -> void:
 	if _koniec:
 		return
 
-	# 3) strony: linie wjeżdżają po kolei, strona stoi czas potrzebny na przeczytanie, zanika
+	# 3) strony: tekst i opcjonalne obrazki wewnątrz nich
 	for i in _strony.size():
 		_zbuduj_strone(_strony[i])
+		
 		for l in _linie:
 			_fade(l, 1.0, czas_pojawiania_linii)
 			await _czekaj(odstep_miedzy_liniami)
@@ -253,7 +272,7 @@ func _przebieg() -> void:
 			if _koniec:
 				return
 
-	# 4) ostatnia strona nie znika osobno: powoli gaśnie całe intro (napisy + tło razem)
+	# 4) koniec intro
 	_zakoncz(czas_zakonczenia)
 
 
@@ -279,4 +298,4 @@ func _zakoncz(czas: float) -> void:
 	if pauzuj_gre:
 		get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	queue_free()   # razem z tym znika grupa "intro_aktywne"
+	queue_free()

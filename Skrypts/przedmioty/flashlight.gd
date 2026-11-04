@@ -87,6 +87,8 @@ func _play_sfx(player: AudioStreamPlayer, stream: AudioStream, delay: float = 0.
 		return
 	if delay > 0.0:
 		await get_tree().create_timer(delay).timeout
+		if not is_inside_tree():
+			return
 	player.stream = stream
 	player.play()
 
@@ -503,10 +505,10 @@ func moze_przeladowac() -> bool:
 	return unlocked and _latarka_wyposazona() and not is_busy and battery < max_battery - 0.01
 
 
-func _znajdz_baterie(inv: Node) -> Item:
+func _znajdz_baterie() -> Item:
 	if battery_item != null:
 		return battery_item
-	for slot in inv.sloty:
+	for slot in Inventory.sloty:
 		if slot != null and slot.item != null and jest_bateria(slot.item):
 			return slot.item
 	return null
@@ -522,18 +524,13 @@ func probuj_przeladowac() -> void:
 		_dbg("bateria latarki jest pełna, przeładowanie zbędne")
 		return
 
-	var inv := get_node_or_null("/root/Inventory")
-	if inv == null:
-		push_warning("Flashlight: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload, nazwa dokładnie: Inventory)")
-		return
-
-	var bateria := _znajdz_baterie(inv)
+	var bateria := _znajdz_baterie()
 	if bateria == null:
 		_dbg("w ekwipunku nie ma przedmiotu '%s', przeładowanie zablokowane" % battery_name)
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
-	var ilosc: int = inv.ile(bateria)
+	var ilosc: int = Inventory.ile(bateria)
 	_dbg("baterii w ekwipunku: %d" % ilosc)
 
 	if ilosc <= 0:
@@ -541,7 +538,7 @@ func probuj_przeladowac() -> void:
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
-	inv.usun_item(bateria, 1)
+	Inventory.usun_item(bateria, 1)
 	_dbg("zużyto 1 baterię, startuje animacja")
 	reload_flashlight()
 
