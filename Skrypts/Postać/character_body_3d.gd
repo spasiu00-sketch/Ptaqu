@@ -186,6 +186,7 @@ var inventory_ui = null
 var oczy = null
 
 var kontrola_zablokowana: bool = false
+var kamera_zablokowana: bool = false
 
 # Używane przez inne skrypty (jumpscare.gd, cien_gracza.gd):
 var shake_offset: Vector2 = Vector2.ZERO          # chwilowy wstrząs kamery (h_offset / v_offset)
@@ -614,6 +615,7 @@ func _update_health(delta: float) -> void:
 
 
 func _die() -> void:
+	kamera_zablokowana = false
 	if _dead:
 		return
 	_dead = true
@@ -784,7 +786,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
-			and not kontrola_zablokowana:
+			and not kontrola_zablokowana and not kamera_zablokowana:
 		_look(event.relative)
 
 	if event.is_action_pressed("interact") and not event.is_echo() and not kontrola_zablokowana:
