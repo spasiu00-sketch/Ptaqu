@@ -2,6 +2,7 @@ class_name InteraktywnyZawias
 extends AnimatableBody3D
 # Obiekt otwierany jak w Phasmophobii: celujesz, przytrzymujesz E i ruszasz myszką.
 # Po puszczeniu E obiekt dalej się rusza z bezwładnością (można trzasnąć drzwiami).
+# Podczas przeciągania gracz może normalnie chodzić (blokowane jest tylko rozglądanie się).
 #
 # USTAWIENIE:
 #  - węzeł AnimatableBody3D z tym skryptem stoi DOKŁADNIE w miejscu zawiasu
@@ -9,6 +10,8 @@ extends AnimatableBody3D
 #  - scena w pozycji ZAMKNIĘTEJ (q = 0)
 #  - ZAWIAS: obraca wokół 'Os Lokalna' (domyślnie Y), SZUFLADA: przesuwa wzdłuż 'Os Lokalna'
 #  - 'Kat Otwarcia' / 'Przesuw Otwarcia' ze znakiem minus = otwiera się w drugą stronę
+#  - skrypt gracza (character_body_3d.gd) musi mieć zmienną 'kamera_zablokowana'
+#    (jest w zaktualizowanym pliku gracza). Bez niej ten skrypt blokuje też chodzenie.
 
 enum Typ { ZAWIAS, SZUFLADA }
 
@@ -23,11 +26,15 @@ enum Typ { ZAWIAS, SZUFLADA }
 @export var czulosc_kat: float = 0.006               # rad na piksel myszy (ZAWIAS)
 @export var czulosc_przesuw: float = 0.0025          # m na piksel myszy (SZUFLADA)
 @export var maks_dystans: float = 3.0                # dalej od kamery = puszcza
+@export var plynnosc_ruchu: float = 18.0             # im więcej, tym ciaśniej obiekt podąża za myszką (mniej = bardziej "miękko")
+@export var plynnosc_predkosci: float = 14.0         # wygładzanie prędkości, z której powstaje bezwładność po puszczeniu
+@export var maks_predkosc: float = 8.0               # limit prędkości po puszczeniu (rad/s lub m/s), chroni przed "wystrzeleniem" drzwi
 
 @export_group("Fizyka")
 @export var tlumienie: float = 2.5                   # im więcej, tym szybciej wyhamowuje po puszczeniu
 @export_range(0.0, 1.0, 0.05) var odbicie: float = 0.2   # odbicie od ograniczników
-@export var zatrzask: float = 0.05                   # ułamek zakresu, w którym wolny obiekt sam domyka się na 0
+@export var zatrzask: float = 0.05                   # ułamek zakresu, w którym wolny obiekt sam delikatnie domyka się na 0
+@export var sila_zatrzasku: float = 60.0             # jak mocno zatrzask wciąga obiekt do zamknięcia
 @export var zablokowane: bool = false
 @export var klucz: Item                              # puste = zamknięte na stałe (do odblokowania z kodu)
 @export var zuzyj_klucz: bool = false
@@ -51,6 +58,7 @@ var prompt_text: String = ""
 var q: float = 0.0        # aktualne otwarcie: radiany (ZAWIAS) albo metry (SZUFLADA)
 var omega: float = 0.0    # prędkość zmiany q
 
+var _cel_q: float = 0.0   # do tego punktu podąża q podczas przeciągania (zbierany z myszki)
 var _lo: float = 0.0
 var _hi: float = 0.0
 var _eps: float = 0.0
@@ -64,6 +72,7 @@ var _trzyma: bool = false
 var _gracz: Node3D
 var _chwyt_lok: Vector3 = Vector3.ZERO   # punkt chwytu w układzie obiektu (podąża za obiektem)
 var _mysz: Vector2 = Vector2.ZERO
+var _kierunek: Vector2 = Vector2(0.0, -1.0)   # wygładzony kierunek ruchu myszką
 var _byl_otwarty: bool = false
 
 var _sfx: AudioStreamPlayer3D
@@ -90,6 +99,7 @@ func _ready() -> void:
 	_lo = minf(0.0, otw)
 	_hi = maxf(0.0, otw)
 	q = otw * start_otwarcie
+	_cel_q = q
 	_byl_otwarty = absf(q) > _eps
 
 	_sfx = _zrob_sfx()
@@ -133,6 +143,8 @@ func interact(gracz = null) -> void:
 
 	_trzyma = true
 	_mysz = Vector2.ZERO
+	_cel_q = q
+	_kierunek = _kierunek_ekranu()
 	_blokuj_kamere(true)
 	set_physics_process(true)
 
@@ -156,14 +168,16 @@ func odblokuj_na_sile() -> void:
 	_odswiez_prompt()
 
 
-# Gracz nie może się rozglądać podczas przeciągania (patrz poprawka w skrypcie gracza)
+# Podczas przeciągania gracz nie rozgląda się (myszka steruje drzwiami), ale CHODZI normalnie.
+# Używamy 'kamera_zablokowana' ze skryptu gracza. Zapasowo (stary gracz bez tej zmiennej)
+# blokujemy całe sterowanie, tak jak wcześniej.
 func _blokuj_kamere(wlacz: bool) -> void:
 	if _gracz == null or not is_instance_valid(_gracz):
 		return
 	if "kamera_zablokowana" in _gracz:
 		_gracz.set("kamera_zablokowana", wlacz)
 	else:
-		_gracz.set("kontrola_zablokowana", wlacz)   # zapasowo: blokuje też ruch
+		_gracz.set("kontrola_zablokowana", wlacz)
 
 
 func _input(event: InputEvent) -> void:
@@ -196,17 +210,32 @@ func _powinien_puscic() -> bool:
 # ---------- Fizyka ----------
 
 func _physics_process(delta: float) -> void:
+	var stare_q := q
+
 	if _trzyma:
 		if _powinien_puscic():
 			_pusc()
 		else:
+			# kierunek ruchu myszką zmienia się płynnie (bez skoków, gdy chwyt jest blisko osi)
+			var nowy_kier := _kierunek_ekranu()
+			_kierunek = _kierunek.lerp(nowy_kier, 1.0 - exp(-20.0 * delta))
+			if _kierunek.length() < 0.001:
+				_kierunek = nowy_kier
+			var kier := _kierunek.normalized()
+
+			# myszka przesuwa tylko CEL, a obiekt gładko za nim podąża
 			var czulosc := czulosc_kat if typ == Typ.ZAWIAS else czulosc_przesuw
-			var dq := _mysz.dot(_kierunek_ekranu()) * czulosc
+			_cel_q = clampf(_cel_q + _mysz.dot(kier) * czulosc, _lo, _hi)
 			_mysz = Vector2.ZERO
-			var nowe := clampf(q + dq, _lo, _hi)
-			omega = lerpf(omega, (nowe - q) / maxf(delta, 0.0001), 0.5)
-			q = nowe
+
+			var k := 1.0 - exp(-plynnosc_ruchu * delta)
+			q = lerpf(q, _cel_q, k)
+
+			# wygładzona prędkość = bezwładność, z jaką obiekt poleci po puszczeniu
+			var v := (q - stare_q) / maxf(delta, 0.0001)
+			omega = lerpf(omega, v, 1.0 - exp(-plynnosc_predkosci * delta))
 	else:
+		omega = clampf(omega, -maks_predkosc, maks_predkosc)
 		omega *= exp(-tlumienie * delta)
 		q += omega * delta
 		if q < _lo:
@@ -216,17 +245,25 @@ func _physics_process(delta: float) -> void:
 			q = _hi
 			omega = -absf(omega) * odbicie
 
-		# wolny obiekt blisko zamknięcia sam wskakuje w zatrzask
+		# wolny obiekt blisko zamknięcia jest delikatnie wciągany w zatrzask (bez skoku)
 		var zakres := maxf(_hi - _lo, 0.0001)
-		if absf(q) < zakres * zatrzask and absf(omega) < _v_stop * 4.0:
-			q = 0.0
-			omega = 0.0
+		if absf(q) < zakres * zatrzask and absf(omega) < _v_stop * 6.0:
+			omega -= q * sila_zatrzasku * delta
+			omega *= exp(-8.0 * delta)
+			if absf(q) < _eps * 0.3 and absf(omega) < _v_stop:
+				q = 0.0
+				omega = 0.0
 
 	_zastosuj()
 	_dzwieki()
 
 	if not _trzyma and absf(omega) < _v_stop:
 		omega = 0.0
+		# resztka tuż przy zamknięciu: domykamy do zera (różnica niewidoczna, bo to ułamek stopnia)
+		if absf(q) < maxf(_hi - _lo, 0.0001) * zatrzask:
+			q = 0.0
+			_zastosuj()
+			_dzwieki()
 		_odswiez_prompt()
 		set_physics_process(false)
 
@@ -253,7 +290,7 @@ func _kierunek_ekranu() -> Vector2:
 	var b := cam.global_transform.basis
 	var sd := Vector2(t.dot(b.x), -t.dot(b.y))   # y ekranu rośnie w dół
 	if sd.length() < 0.05:
-		return Vector2(0.0, -1.0)
+		return _kierunek if _kierunek.length() > 0.001 else Vector2(0.0, -1.0)
 	return sd.normalized()
 
 

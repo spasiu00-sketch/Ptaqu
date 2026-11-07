@@ -23,7 +23,8 @@ func uzyj(gracz: Node) -> bool:
 	if not uzywalny or gracz == null:
 		return false
 	if laduje_baterie > 0.0:
-		var latarka: Flashlight = gracz.get("flashlight") as Flashlight
+		# bez typu Flashlight, żeby nie tworzyć cyklu Item <-> Flashlight
+		var latarka = gracz.get("flashlight")
 		if latarka != null and latarka.battery < latarka.max_battery:
 			latarka.charge_battery(laduje_baterie)
 			return true
@@ -36,7 +37,7 @@ func wyrzuc(gracz: Node3D) -> bool:
 
 	var bateria := -1.0
 	if jest_latarka:
-		var latarka: Flashlight = gracz.get("flashlight") as Flashlight
+		var latarka = gracz.get("flashlight")
 		if latarka != null:
 			if latarka.is_busy:
 				return false
@@ -57,7 +58,7 @@ func wyrzuc(gracz: Node3D) -> bool:
 	instancja.global_rotation.y = gracz.global_rotation.y
 	instancja.global_position = punkt
 	_ustaw_na_punkcie(instancja, punkt)
-	
+
 	if not _ustaw_przedmiot(instancja, bateria, instancja):
 		push_warning("Item '%s': w modelu nie znaleziono przedmiot.gd, nie da się go podnieść" % nazwa)
 
@@ -105,8 +106,8 @@ func _znajdz_miejsce(gracz: Node3D) -> Vector3:
 		return gracz.global_position + przod * dystans
 	return podloga["position"]
 
+
 # Przesuwa cały model tak, by jego środek (XZ) był w 'punkt', a spód leżał na podłodze.
-# Niweluje offset modelu względem origin korzenia sceny przedmiotu.
 func _ustaw_na_punkcie(korzen: Node3D, punkt: Vector3) -> void:
 	var aabb := AABB()
 	var jest := false

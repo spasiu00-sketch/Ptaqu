@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://dyin0y7waqing"]
+[gd_scene format=3 uid="uid://hgd3nunnurdf"]
 
 [ext_resource type="Texture2D" uid="uid://dg27nbnq2d5ya" path="res://Materials/drzewo.png" id="1_u7jam"]
 [ext_resource type="Texture2D" uid="uid://blc0tql5lgh8q" path="res://Memes/mem1.png" id="2_ihq08"]
@@ -227,5 +227,7 @@ gizmo_extents = 0.57
 
 [node name="Mapa_Gry" parent="." unique_id=336073833 instance=ExtResource("15_u5pcf")]
 
+[editable path="HERO"]
 [editable path="Latarka"]
 [editable path="Node3D4"]
+[editable path="Mapa_Gry"]

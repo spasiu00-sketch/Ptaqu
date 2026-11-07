@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dexy5pm15hq7k"]
 
 [ext_resource type="PackedScene" uid="uid://s2g6o6d70o0f" path="res://Models/MAPA/pain_tree.glb" id="1_2ikgt"]
-[ext_resource type="Texture2D" uid="uid://c7gvjw60ht64t" path="res://Models/MAPA/trawa_514c2bbd9becf4502de10956722e2d9d.jpg" id="1_jue44"]
+[ext_resource type="Texture2D" uid="uid://c7gvjw60ht64t" path="res://Models/MAPA/trawa.jpg" id="1_jue44"]
 [ext_resource type="Script" uid="uid://dbndw8p05yam7" path="res://addons/terrain_3d/utils/terrain_3d_objects.gd" id="3_3o0n8"]
 [ext_resource type="PackedScene" uid="uid://d4a3s7gjo6dph" path="res://Scenes/Propy/brama_lewa.tscn" id="4_6uhj2"]
 [ext_resource type="PackedScene" uid="uid://cgcfqexjhp12s" path="res://Scenes/Propy/brama_prawa.tscn" id="5_3o0n8"]
