@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Inventory="*uid://dujg6gokkniah"
+Debugmode="*uid://bfgxo88fwe2s8"
 
 [display]
 

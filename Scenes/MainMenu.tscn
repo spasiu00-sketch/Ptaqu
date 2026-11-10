@@ -1,6 +1,9 @@
 [gd_scene format=3 uid="uid://culpdkky4ql1j"]
 
 [ext_resource type="Script" uid="uid://rl8twirpremm" path="res://Skrypts/MENU/MainMenu.gd" id="1_i26rj"]
+[ext_resource type="AudioStream" uid="uid://db5ffa735eed5" path="res://Sounds/Menu/657946__lilmati__horror-inspect-sound-ui-or-in-game-notification-02.wav" id="2_8saeu"]
+[ext_resource type="AudioStream" uid="uid://cb5pfbfv314sq" path="res://Sounds/Menu/555179__audio_dread__creepy-horror-ambient-drone.wav" id="2_853f1"]
+[ext_resource type="AudioStream" uid="uid://ba5etw526geo2" path="res://Sounds/Menu/657950__lilmati__scifi-inspect-sound-ui-or-in-game-notification-02.wav" id="2_ghw46"]
 
 [node name="Control" type="Control" unique_id=1735361042]
 layout_mode = 3
@@ -10,3 +13,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_i26rj")
+move_sound = ExtResource("2_ghw46")
+select_sound = ExtResource("2_8saeu")
+muzyka = ExtResource("2_853f1")
+muzyka_glosnosc_db = -30.0
