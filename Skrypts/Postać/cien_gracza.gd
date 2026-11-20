@@ -21,6 +21,10 @@ func _ready() -> void:
 	_meshe = find_children("*", "GeometryInstance3D", true, false)
 	_gracz = get_parent()
 	_ustaw_widocznosc(false)
+	# latarka konfiguruje się deferred i może nadpisać cast_shadow, więc ustawiamy stan jeszcze raz
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_ustaw_widocznosc(_widoczny)
 
 
 func _unhandled_input(event: InputEvent) -> void:

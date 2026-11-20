@@ -1,8 +1,8 @@
 class_name InteraktywnyZawias
 extends AnimatableBody3D
-# Obiekt otwierany jak w Phasmophobii: celujesz, przytrzymujesz E i ruszasz myszką.
-# Po puszczeniu E obiekt dalej się rusza z bezwładnością (można trzasnąć drzwiami).
-# Podczas przeciągania gracz może normalnie chodzić (blokowane jest tylko rozglądanie się).
+# Obiekt otwierany jak w Phasmophobii: celujesz, przytrzymujesz LPM i ruszasz kamerą.
+# Punkt chwytu podąża za środkiem ekranu (kamera + ruch gracza), żadna oś nie jest blokowana.
+# Po puszczeniu LPM obiekt dalej się rusza z bezwładnością (można trzasnąć drzwiami).
 #
 # USTAWIENIE:
 #  - węzeł AnimatableBody3D z tym skryptem stoi DOKŁADNIE w miejscu zawiasu
@@ -10,55 +10,51 @@ extends AnimatableBody3D
 #  - scena w pozycji ZAMKNIĘTEJ (q = 0)
 #  - ZAWIAS: obraca wokół 'Os Lokalna' (domyślnie Y), SZUFLADA: przesuwa wzdłuż 'Os Lokalna'
 #  - 'Kat Otwarcia' / 'Przesuw Otwarcia' ze znakiem minus = otwiera się w drugą stronę
-#  - skrypt gracza (character_body_3d.gd) musi mieć zmienną 'kamera_zablokowana'
-#    (jest w zaktualizowanym pliku gracza). Bez niej ten skrypt blokuje też chodzenie.
 
 enum Typ { ZAWIAS, SZUFLADA }
 
 @export var typ: Typ = Typ.ZAWIAS
-@export var os_lokalna: Vector3 = Vector3.UP         # ZAWIAS: oś obrotu, SZUFLADA: kierunek wysuwania
-@export var kat_otwarcia: float = 90.0               # stopnie (ZAWIAS), ze znakiem = kierunek otwierania
-@export var przesuw_otwarcia: float = 0.4            # metry (SZUFLADA), ze znakiem = kierunek
-@export_range(0.0, 1.0, 0.01) var start_otwarcie: float = 0.0   # 0 = zamknięte, 1 = otwarte do końca
+@export var os_lokalna: Vector3 = Vector3.UP
+@export var kat_otwarcia: float = 90.0
+@export var przesuw_otwarcia: float = 0.4
+@export_range(0.0, 1.0, 0.01) var start_otwarcie: float = 0.0
 
 @export_group("Przeciąganie")
-@export var akcja: StringName = &"interact"
-@export var czulosc_kat: float = 0.006               # rad na piksel myszy (ZAWIAS)
-@export var czulosc_przesuw: float = 0.0025          # m na piksel myszy (SZUFLADA)
+@export var przycisk: MouseButton = MOUSE_BUTTON_LEFT
 @export var maks_dystans: float = 3.0                # dalej od kamery = puszcza
-@export var plynnosc_ruchu: float = 18.0             # im więcej, tym ciaśniej obiekt podąża za myszką (mniej = bardziej "miękko")
-@export var plynnosc_predkosci: float = 14.0         # wygładzanie prędkości, z której powstaje bezwładność po puszczeniu
-@export var maks_predkosc: float = 8.0               # limit prędkości po puszczeniu (rad/s lub m/s), chroni przed "wystrzeleniem" drzwi
+@export var maks_odchylenie: float = 1.5             # gdy punkt chwytu ucieknie tak daleko od celownika = puszcza
+@export_range(0.05, 1.0, 0.05) var sledzenie: float = 1.0   # 1 = sztywno za celownikiem, mniej = bardziej "ciężko"
+@export var maks_krok_kat: float = 0.35              # maks. obrót na klatkę fizyki (rad), zabezpieczenie przed skokami
+@export var maks_krok_przesuw: float = 0.2           # maks. przesuw na klatkę (m)
 
 @export_group("Fizyka")
-@export var tlumienie: float = 2.5                   # im więcej, tym szybciej wyhamowuje po puszczeniu
-@export_range(0.0, 1.0, 0.05) var odbicie: float = 0.2   # odbicie od ograniczników
-@export var zatrzask: float = 0.05                   # ułamek zakresu, w którym wolny obiekt sam delikatnie domyka się na 0
-@export var sila_zatrzasku: float = 60.0             # jak mocno zatrzask wciąga obiekt do zamknięcia
+@export var tlumienie: float = 2.5
+@export_range(0.0, 1.0, 0.05) var odbicie: float = 0.2
+@export var zatrzask: float = 0.05
 @export var zablokowane: bool = false
-@export var klucz: Item                              # puste = zamknięte na stałe (do odblokowania z kodu)
+@export var klucz: Item
 @export var zuzyj_klucz: bool = false
 
 @export_group("Napisy")
-@export var prompt_otworz: String = "Otwórz (przytrzymaj i przeciągnij)"
-@export var prompt_zamknij: String = "Zamknij (przytrzymaj i przeciągnij)"
+@export var prompt_otworz: String = "Otwórz (przytrzymaj i ruszaj kamerą)"
+@export var prompt_zamknij: String = "Zamknij (przytrzymaj i ruszaj kamerą)"
 @export var prompt_zablokowane: String = "Zamknięte"
 
 @export_group("Dźwięki")
-@export var dzwiek_otwarcie: AudioStream             # gdy obiekt rusza z pozycji zamkniętej
-@export var dzwiek_zamkniecie: AudioStream           # gdy wraca do pozycji zamkniętej (głośność zależy od siły trzaśnięcia)
-@export var dzwiek_skrzyp: AudioStream               # gra podczas szybkiego ruchu
-@export var dzwiek_zamkniete: AudioStream            # próba otwarcia zamkniętego
+@export var dzwiek_otwarcie: AudioStream
+@export var dzwiek_zamkniecie: AudioStream
+@export var dzwiek_skrzyp: AudioStream
+@export var dzwiek_zamkniete: AudioStream
 @export var dzwiek_odblokowanie: AudioStream
 @export var glosnosc_db: float = 0.0
 
-# odczytywane przez gracza ([E] + tekst)
+# odczytywane przez gracza (prefiks + tekst)
+var prompt_prefix: String = "[LPM] "
 var prompt_text: String = ""
 
-var q: float = 0.0        # aktualne otwarcie: radiany (ZAWIAS) albo metry (SZUFLADA)
-var omega: float = 0.0    # prędkość zmiany q
+var q: float = 0.0
+var omega: float = 0.0
 
-var _cel_q: float = 0.0   # do tego punktu podąża q podczas przeciągania (zbierany z myszki)
 var _lo: float = 0.0
 var _hi: float = 0.0
 var _eps: float = 0.0
@@ -70,9 +66,8 @@ var _baza_poz: Vector3
 
 var _trzyma: bool = false
 var _gracz: Node3D
-var _chwyt_lok: Vector3 = Vector3.ZERO   # punkt chwytu w układzie obiektu (podąża za obiektem)
-var _mysz: Vector2 = Vector2.ZERO
-var _kierunek: Vector2 = Vector2(0.0, -1.0)   # wygładzony kierunek ruchu myszką
+var _chwyt_lok: Vector3 = Vector3.ZERO   # punkt chwytu w układzie obiektu
+var _chwyt_dyst: float = 1.0             # odległość kamera -> punkt chwytu w chwili złapania
 var _byl_otwarty: bool = false
 
 var _sfx: AudioStreamPlayer3D
@@ -80,7 +75,7 @@ var _sfx_skrzyp: AudioStreamPlayer3D
 
 
 func _ready() -> void:
-	sync_to_physics = true   # ruch poprawnie popycha gracza (CharacterBody3D)
+	sync_to_physics = true
 	_baza_basis = basis
 	_baza_poz = position
 	_os = os_lokalna.normalized() if os_lokalna.length() > 0.001 else Vector3.UP
@@ -99,7 +94,6 @@ func _ready() -> void:
 	_lo = minf(0.0, otw)
 	_hi = maxf(0.0, otw)
 	q = otw * start_otwarcie
-	_cel_q = q
 	_byl_otwarty = absf(q) > _eps
 
 	_sfx = _zrob_sfx()
@@ -108,7 +102,7 @@ func _ready() -> void:
 
 	_zastosuj()
 	_odswiez_prompt()
-	set_physics_process(false)   # działa tylko, gdy obiekt się rusza
+	set_physics_process(false)
 
 
 func _zrob_sfx() -> AudioStreamPlayer3D:
@@ -118,35 +112,63 @@ func _zrob_sfx() -> AudioStreamPlayer3D:
 	return p
 
 
-func _exit_tree() -> void:
+# E już nic nie robi (metoda zostaje, bo gracz po niej rozpoznaje obiekt i pokazuje napis)
+func interact(_gracz_arg = null) -> void:
+	pass
+
+
+# ---------- Wejście: LPM ----------
+
+func _input(event: InputEvent) -> void:
 	if _trzyma:
-		_blokuj_kamere(false)
-
-
-# ---------- Interakcja ----------
-
-# Wołane przez gracza po naciśnięciu [E]
-func interact(gracz = null) -> void:
-	if _trzyma or gracz == null:
 		return
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == przycisk):
+		return
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+
+	var gracz := _znajdz_gracza()
+	if gracz == null:
+		return
+	if gracz.has_method("is_dead") and gracz.call("is_dead"):
+		return
+	if gracz.has_method("_inventory_open") and gracz.call("_inventory_open"):
+		return
+	if gracz.get("kontrola_zablokowana"):
+		return
+
+	var ray := gracz.get("interact_ray") as RayCast3D
+	if ray == null or not ray.is_colliding() or ray.get_collider() != self:
+		return
+
+	get_viewport().set_input_as_handled()   # klik nie leci dalej (np. do przedmiotu w ręku)
+
 	if zablokowane and not _odblokuj():
 		_zagraj(dzwiek_zamkniete)
 		return
 
-	_gracz = gracz as Node3D
-	if _gracz == null:
+	var cam := gracz.get("camera") as Camera3D
+	if cam == null:
 		return
-
-	var ray := _gracz.get("interact_ray") as RayCast3D
-	var pkt: Vector3 = ray.get_collision_point() if ray != null and ray.is_colliding() else global_position
+	var pkt := ray.get_collision_point()
+	_gracz = gracz
 	_chwyt_lok = to_local(pkt)
-
+	_chwyt_dyst = cam.global_position.distance_to(pkt)
 	_trzyma = true
-	_mysz = Vector2.ZERO
-	_cel_q = q
-	_kierunek = _kierunek_ekranu()
-	_blokuj_kamere(true)
 	set_physics_process(true)
+
+
+func _znajdz_gracza() -> Node3D:
+	if _gracz != null and is_instance_valid(_gracz):
+		return _gracz
+	var cam := get_viewport().get_camera_3d()
+	var n: Node = cam
+	while n != null:
+		if n is CharacterBody3D:
+			_gracz = n as Node3D
+			return _gracz
+		n = n.get_parent()
+	return null
 
 
 func _odblokuj() -> bool:
@@ -168,41 +190,28 @@ func odblokuj_na_sile() -> void:
 	_odswiez_prompt()
 
 
-# Podczas przeciągania gracz nie rozgląda się (myszka steruje drzwiami), ale CHODZI normalnie.
-# Używamy 'kamera_zablokowana' ze skryptu gracza. Zapasowo (stary gracz bez tej zmiennej)
-# blokujemy całe sterowanie, tak jak wcześniej.
-func _blokuj_kamere(wlacz: bool) -> void:
-	if _gracz == null or not is_instance_valid(_gracz):
-		return
-	if "kamera_zablokowana" in _gracz:
-		_gracz.set("kamera_zablokowana", wlacz)
-	else:
-		_gracz.set("kontrola_zablokowana", wlacz)
-
-
-func _input(event: InputEvent) -> void:
-	if _trzyma and event is InputEventMouseMotion:
-		_mysz += event.relative
-
-
 func _pusc() -> void:
 	_trzyma = false
-	_blokuj_kamere(false)
-	_mysz = Vector2.ZERO
 	_odswiez_prompt()
 
 
-func _powinien_puscic() -> bool:
-	if _gracz == null or not is_instance_valid(_gracz):
+func _cel_celownika(cam: Camera3D) -> Vector3:
+	return cam.global_position - cam.global_transform.basis.z * _chwyt_dyst
+
+
+func _powinien_puscic(cam: Camera3D) -> bool:
+	if _gracz == null or not is_instance_valid(_gracz) or cam == null:
 		return true
-	if not Input.is_action_pressed(akcja) or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if not Input.is_mouse_button_pressed(przycisk) or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return true
 	if _gracz.has_method("is_dead") and _gracz.call("is_dead"):
 		return true
 	if _gracz.has_method("_inventory_open") and _gracz.call("_inventory_open"):
 		return true
-	var cam := _gracz.get("camera") as Camera3D
-	if cam != null and cam.global_position.distance_to(to_global(_chwyt_lok)) > maks_dystans:
+	var chwyt := to_global(_chwyt_lok)
+	if cam.global_position.distance_to(chwyt) > maks_dystans:
+		return true
+	if chwyt.distance_to(_cel_celownika(cam)) > maks_odchylenie:
 		return true
 	return false
 
@@ -210,32 +219,20 @@ func _powinien_puscic() -> bool:
 # ---------- Fizyka ----------
 
 func _physics_process(delta: float) -> void:
-	var stare_q := q
-
 	if _trzyma:
-		if _powinien_puscic():
+		var cam: Camera3D = null
+		if _gracz != null and is_instance_valid(_gracz):
+			cam = _gracz.get("camera") as Camera3D
+		if _powinien_puscic(cam):
 			_pusc()
 		else:
-			# kierunek ruchu myszką zmienia się płynnie (bez skoków, gdy chwyt jest blisko osi)
-			var nowy_kier := _kierunek_ekranu()
-			_kierunek = _kierunek.lerp(nowy_kier, 1.0 - exp(-20.0 * delta))
-			if _kierunek.length() < 0.001:
-				_kierunek = nowy_kier
-			var kier := _kierunek.normalized()
-
-			# myszka przesuwa tylko CEL, a obiekt gładko za nim podąża
-			var czulosc := czulosc_kat if typ == Typ.ZAWIAS else czulosc_przesuw
-			_cel_q = clampf(_cel_q + _mysz.dot(kier) * czulosc, _lo, _hi)
-			_mysz = Vector2.ZERO
-
-			var k := 1.0 - exp(-plynnosc_ruchu * delta)
-			q = lerpf(q, _cel_q, k)
-
-			# wygładzona prędkość = bezwładność, z jaką obiekt poleci po puszczeniu
-			var v := (q - stare_q) / maxf(delta, 0.0001)
-			omega = lerpf(omega, v, 1.0 - exp(-plynnosc_predkosci * delta))
+			var dq := _blad_do_celownika(cam) * sledzenie
+			var limit := maks_krok_kat if typ == Typ.ZAWIAS else maks_krok_przesuw
+			dq = clampf(dq, -limit, limit)
+			var nowe := clampf(q + dq, _lo, _hi)
+			omega = lerpf(omega, (nowe - q) / maxf(delta, 0.0001), 0.5)
+			q = nowe
 	else:
-		omega = clampf(omega, -maks_predkosc, maks_predkosc)
 		omega *= exp(-tlumienie * delta)
 		q += omega * delta
 		if q < _lo:
@@ -245,27 +242,37 @@ func _physics_process(delta: float) -> void:
 			q = _hi
 			omega = -absf(omega) * odbicie
 
-		# wolny obiekt blisko zamknięcia jest delikatnie wciągany w zatrzask (bez skoku)
 		var zakres := maxf(_hi - _lo, 0.0001)
-		if absf(q) < zakres * zatrzask and absf(omega) < _v_stop * 6.0:
-			omega -= q * sila_zatrzasku * delta
-			omega *= exp(-8.0 * delta)
-			if absf(q) < _eps * 0.3 and absf(omega) < _v_stop:
-				q = 0.0
-				omega = 0.0
+		if absf(q) < zakres * zatrzask and absf(omega) < _v_stop * 4.0:
+			q = 0.0
+			omega = 0.0
 
 	_zastosuj()
 	_dzwieki()
 
 	if not _trzyma and absf(omega) < _v_stop:
 		omega = 0.0
-		# resztka tuż przy zamknięciu: domykamy do zera (różnica niewidoczna, bo to ułamek stopnia)
-		if absf(q) < maxf(_hi - _lo, 0.0001) * zatrzask:
-			q = 0.0
-			_zastosuj()
-			_dzwieki()
 		_odswiez_prompt()
 		set_physics_process(false)
+
+
+# Ile trzeba zmienić q (rad albo m), żeby punkt chwytu dogonił punkt przed kamerą.
+# Działa dla każdego ruchu kamery (obrót w dowolną stronę, chodzenie), bez wybierania osi ekranu.
+func _blad_do_celownika(cam: Camera3D) -> float:
+	var os_w := (global_transform.basis * _os).normalized()
+	var chwyt := to_global(_chwyt_lok)
+	var cel := _cel_celownika(cam)
+
+	if typ == Typ.SZUFLADA:
+		return (cel - chwyt).dot(os_w)
+
+	var g := chwyt - global_position
+	var t := cel - global_position
+	g -= os_w * g.dot(os_w)
+	t -= os_w * t.dot(os_w)
+	if g.length() < 0.05 or t.length() < 0.05:
+		return 0.0
+	return g.signed_angle_to(t, os_w)
 
 
 func _zastosuj() -> void:
@@ -273,25 +280,6 @@ func _zastosuj() -> void:
 		basis = _baza_basis * Basis(_os, q)
 	else:
 		position = _baza_poz + _baza_basis * (_os * q)
-
-
-# Kierunek (na ekranie), w którym trzeba ruszyć myszką, żeby q rosło.
-# Liczony z ruchu punktu chwytu, więc działa z dowolnej strony i dla dowolnej orientacji.
-func _kierunek_ekranu() -> Vector2:
-	var cam := _gracz.get("camera") as Camera3D
-	if cam == null:
-		return Vector2(0.0, -1.0)
-	var os_w := (global_transform.basis * _os).normalized()
-	var t: Vector3
-	if typ == Typ.ZAWIAS:
-		t = os_w.cross(to_global(_chwyt_lok) - global_position)
-	else:
-		t = os_w
-	var b := cam.global_transform.basis
-	var sd := Vector2(t.dot(b.x), -t.dot(b.y))   # y ekranu rośnie w dół
-	if sd.length() < 0.05:
-		return _kierunek if _kierunek.length() > 0.001 else Vector2(0.0, -1.0)
-	return sd.normalized()
 
 
 # ---------- Dźwięki i napisy ----------

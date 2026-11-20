@@ -87,8 +87,6 @@ func _play_sfx(player: AudioStreamPlayer, stream: AudioStream, delay: float = 0.
 		return
 	if delay > 0.0:
 		await get_tree().create_timer(delay).timeout
-		if not is_inside_tree():
-			return
 	player.stream = stream
 	player.play()
 
@@ -136,15 +134,15 @@ func _has_original_player(node: Node) -> bool:
 	return not found.is_empty()
 
 
-func _save_rest_pose(node: Node) -> void:
+func _save_rest_pose(node: Node, wylacz_cienie: bool = true) -> void:
 	for child in node.get_children():
 		if child == self:
 			continue
 		if child is Node3D:
 			_rest_pose[child] = {"t": child.transform, "v": child.visible}
-		if child is GeometryInstance3D:
+		if wylacz_cienie and child is GeometryInstance3D:
 			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_save_rest_pose(child)
+		_save_rest_pose(child, wylacz_cienie)
 
 
 func _restore_rest_pose() -> void:
@@ -163,9 +161,25 @@ func _collect_players(node: Node, out: Array) -> void:
 		_collect_players(child, out)
 
 
-func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
+# Szukamy animacji w całym graczu (gdy model_root nie zawiera AnimationPlayera z animacją baterii)
+func _search_root() -> Node:
+	return _gracz if _gracz != null else model_root
+
+
+# Najpierw odtwarzacze z model_root, potem reszta gracza
+func _all_players() -> Array:
 	var players: Array = []
 	_collect_players(model_root, players)
+	var rest: Array = []
+	_collect_players(_search_root(), rest)
+	for p in rest:
+		if not players.has(p):
+			players.append(p)
+	return players
+
+
+func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
+	var players: Array = _all_players()
 	var wanted := String(anim_name).strip_edges().to_lower()
 
 	for p: AnimationPlayer in players:
@@ -185,13 +199,30 @@ func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
 	return {}
 
 
+# Czy wszystkie zbudowane odtwarzacze nadal żyją i wiszą w drzewie
+func _players_ok() -> bool:
+	var jest := false
+	for p in _players:
+		if p == null:
+			continue
+		if not is_instance_valid(p) or not p.is_inside_tree():
+			return false
+		jest = true
+	return jest
+
+
 func _build_players() -> void:
+	# sprzątamy stare odtwarzacze, żeby się nie dublowały
+	for stary in _players:
+		if stary != null and is_instance_valid(stary):
+			if stary.get_parent() != null:
+				stary.get_parent().remove_child(stary)
+			stary.queue_free()
 	_players.clear()
 	var used: Array = []
 
 	if debug_animations:
-		var all: Array = []
-		_collect_players(model_root, all)
+		var all: Array = _all_players()
 		for p: AnimationPlayer in all:
 			print("Player: ", p.get_path(), " animacje: ", p.get_animation_list())
 
@@ -199,12 +230,11 @@ func _build_players() -> void:
 		var n := reload_animations[idx]
 		var found := _find_animation(n, used)
 		if found.is_empty():
-			var all2: Array = []
-			_collect_players(model_root, all2)
+			var all2: Array = _all_players()
 			var names: Array = []
 			for p2: AnimationPlayer in all2:
-				names.append_array(p2.get_animation_list())
-			push_warning("Flashlight: NIE ZNALEZIONO animacji '%s'. Dostępne: %s" % [n, names])
+				names.append(str(p2.get_path()) + ": " + str(p2.get_animation_list()))
+			push_warning("Flashlight: NIE ZNALEZIONO animacji '%s' w żadnym AnimationPlayerze gracza. Dostępne: %s" % [n, names])
 			_players.append(null)
 			continue
 
@@ -218,6 +248,7 @@ func _build_players() -> void:
 			_players.append(null)
 			continue
 
+		_save_rest_pose(root, false)   # żeby po animacji przywrócić też węzły spoza model_root
 		var anim: Animation = src.get_animation(key).duplicate()
 		anim.loop_mode = Animation.LOOP_NONE
 		_fix_track_paths(anim, root, n)
@@ -230,6 +261,9 @@ func _build_players() -> void:
 		src.get_parent().add_child(p)
 		p.root_node = src.root_node
 		p.add_animation_library(&"", lib)
+		p.active = true
+		p.speed_scale = 1.0
+		p.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 		_players.append(p)
 
 		if debug_animations:
@@ -329,17 +363,25 @@ func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> voi
 
 
 func _play_all() -> void:
+	# odtwarzacze mogły zniknąć (przepięty / zduplikowany model): odbuduj je
+	if model_root == null or not is_instance_valid(model_root):
+		_setup_model()
+	elif not _players_ok():
+		_build_players()
+
 	var longest := 0.0
 	for i in _players.size():
 		var p = _players[i]
-		if p == null:
+		if p == null or not is_instance_valid(p):
 			continue
 		var n := reload_animations[i]
+		p.active = true
+		p.speed_scale = 1.0
 		p.stop()
 		p.play(n)
 		longest = maxf(longest, p.get_animation(n).length)
 		if debug_animations:
-			print("GRA: ", n, " (", p.get_animation(n).length, " s)")
+			print("GRA: ", n, " (", p.get_animation(n).length, " s) playing=", p.is_playing())
 
 	var sound_len := 0.0
 	if reload_sound != null:
@@ -350,7 +392,7 @@ func _play_all() -> void:
 		await get_tree().create_timer(longest + 0.05).timeout
 
 	for p in _players:
-		if p != null:
+		if p != null and is_instance_valid(p):
 			p.stop()
 			p.clear_caches()
 	_restore_rest_pose()
@@ -505,10 +547,10 @@ func moze_przeladowac() -> bool:
 	return unlocked and _latarka_wyposazona() and not is_busy and battery < max_battery - 0.01
 
 
-func _znajdz_baterie() -> Item:
+func _znajdz_baterie(inv: Node) -> Item:
 	if battery_item != null:
 		return battery_item
-	for slot in Inventory.sloty:
+	for slot in inv.sloty:
 		if slot != null and slot.item != null and jest_bateria(slot.item):
 			return slot.item
 	return null
@@ -524,13 +566,18 @@ func probuj_przeladowac() -> void:
 		_dbg("bateria latarki jest pełna, przeładowanie zbędne")
 		return
 
-	var bateria := _znajdz_baterie()
+	var inv := get_node_or_null("/root/Inventory")
+	if inv == null:
+		push_warning("Flashlight: brak autoloadu 'Inventory' (Project Settings -> Globals -> Autoload, nazwa dokładnie: Inventory)")
+		return
+
+	var bateria := _znajdz_baterie(inv)
 	if bateria == null:
 		_dbg("w ekwipunku nie ma przedmiotu '%s', przeładowanie zablokowane" % battery_name)
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
-	var ilosc: int = Inventory.ile(bateria)
+	var ilosc: int = inv.ile(bateria)
 	_dbg("baterii w ekwipunku: %d" % ilosc)
 
 	if ilosc <= 0:
@@ -538,7 +585,7 @@ func probuj_przeladowac() -> void:
 		_play_sfx(_sfx_alert, no_battery_sound)
 		return
 
-	Inventory.usun_item(bateria, 1)
+	inv.usun_item(bateria, 1)
 	_dbg("zużyto 1 baterię, startuje animacja")
 	reload_flashlight()
 

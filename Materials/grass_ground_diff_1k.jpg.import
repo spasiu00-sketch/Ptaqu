@@ -2,24 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c7gvjw60ht64t"
-path.s3tc="res://.godot/imported/trawa.jpg-b452962b8abc5d3cf2fd095945d7a2cd.s3tc.ctex"
+uid="uid://mmkhvkwqieuw"
+path="res://.godot/imported/grass_ground_diff_1k.jpg-6bdd1143fefcef32d6ae77c38e47cebe.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "7fa5e530e159b8eb1351099c86335ad9"
+"vram_texture": false
 }
 
 [deps]
 
-source_file="res://Models/MAPA/trawa.jpg"
-dest_files=["res://.godot/imported/trawa.jpg-b452962b8abc5d3cf2fd095945d7a2cd.s3tc.ctex"]
+source_file="res://Materials/grass_ground_diff_1k.jpg"
+dest_files=["res://.godot/imported/grass_ground_diff_1k.jpg-6bdd1143fefcef32d6ae77c38e47cebe.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -27,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -41,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

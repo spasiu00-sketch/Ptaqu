@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://b5pt1mu1r7cw5"]
+
+[ext_resource type="Script" uid="uid://dre1tdkgvobxn" path="res://Skrypts/Mechaniki strachu/czarnystwor.gd" id="1_41p2k"]
+[ext_resource type="PackedScene" uid="uid://cphpcnqfl0ngo" path="res://Models/Villain/ptaqu_villain.glb" id="2_xwgct"]
+
+[node name="czarnystwor" type="Node3D" unique_id=1649121240]
+script = ExtResource("1_41p2k")
+
+[node name="ptaqu_villain" parent="." unique_id=1899268102 instance=ExtResource("2_xwgct")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0)

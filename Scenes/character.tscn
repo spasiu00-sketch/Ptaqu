@@ -1,15 +1,16 @@
 [gd_scene format=4 uid="uid://csrmuvwj0fefo"]
 
 [ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/Postać/character_body_3d.gd" id="1_glpr6"]
-[ext_resource type="Script" uid="uid://ckjn55u5550cy" path="res://Skrypts/Postać/powierzchnia_kroków.gd" id="2_rtvxd"]
-[ext_resource type="AudioStream" uid="uid://bepfr44jdi7h2" path="res://Sounds/844541__zajac27__step-wet-grass.mp3" id="3_1g2gg"]
+[ext_resource type="AudioStream" uid="uid://cq08548vraulq" path="res://Sounds/Hero/680766__saha213131__breath3.wav" id="2_0wngn"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/przedmioty/flashlight.gd" id="3_wa5vi"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Latarka/Untitled_test animacji.glb" id="4_px5sl"]
-[ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
+[ext_resource type="AudioStream" uid="uid://c000w3o67vatp" path="res://Sounds/Steps/footsteps_leather_wood_walk04.wav" id="4_wfnr8"]
+[ext_resource type="AudioStream" uid="uid://cvdk3rorigxdy" path="res://Sounds/Hero/serce.mp3" id="5_8iu2w"]
 [ext_resource type="Script" uid="uid://rwrdj3yyefgb" path="res://Skrypts/Postać/cien_gracza.gd" id="5_hgna0"]
 [ext_resource type="AudioStream" uid="uid://dfcjcf8s8lsj2" path="res://Sounds/88291__s_dij__whisk_reload_05.wav" id="5_jb3kq"]
 [ext_resource type="AudioStream" uid="uid://byr1bigr3plrn" path="res://Sounds/421475__jaszunio15__click_143.wav" id="6_jb3kq"]
 [ext_resource type="AudioStream" uid="uid://ccacggeasx808" path="res://Sounds/232447__mmaruska__lights-flicker-on.wav" id="7_7tnxx"]
+[ext_resource type="PackedScene" uid="uid://b5pt1mu1r7cw5" path="res://Scenes/mechaniki_strachu/czarnystwor.tscn" id="7_8iu2w"]
 [ext_resource type="AudioStream" uid="uid://dxsojw4w6ua85" path="res://Sounds/710280__dan2008__no-battery.wav" id="8_bwfjh"]
 [ext_resource type="Animation" uid="uid://do65qfdtmrira" path="res://Animations/Hero_jump.res" id="11_et0tf"]
 [ext_resource type="Script" uid="uid://c5opn64q3lkdr" path="res://Skrypts/Postać/trzymany_obiekt.gd" id="11_l1rcp"]
@@ -24,6 +25,7 @@
 [ext_resource type="Animation" uid="uid://devxef7jt2yv" path="res://Animations/Hero_idle_crouch.res" id="18_1g2gg"]
 [ext_resource type="Resource" uid="uid://cr45twhtu7b3b" path="res://Items/Latarka.tres" id="18_rtvxd"]
 [ext_resource type="Resource" uid="uid://d1jcry5yjguiv" path="res://Items/Bateria.tres" id="20_1g2gg"]
+[ext_resource type="PackedScene" uid="uid://d3lxdlev74n0f" path="res://Scenes/przedmioty/bateria.tscn" id="25_4kq8q"]
 
 [sub_resource type="GDScript" id="GDScript_7iw6i"]
 script/source = "extends Node3D
@@ -39,16 +41,9 @@ func _process(delta: float) -> void:
 	pass
 "
 
-[sub_resource type="Resource" id="Resource_4kq8q"]
-script = ExtResource("2_rtvxd")
-nazwa = "trawa"
-id_tekstury = 0
-dzwieki = Array[AudioStream]([ExtResource("3_1g2gg")])
-metadata/_custom_type_script = "uid://ckjn55u5550cy"
-
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bhunq"]
 radius = 0.26220703
-height = 1.2595339
+height = 1.3612123
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5ue4r"]
 resource_name = "body.002"
@@ -682,86 +677,18 @@ script = SubResource("GDScript_7iw6i")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1064488856]
 script = ExtResource("1_glpr6")
-acceleration = null
-deceleration = null
-stamina_enabled = null
-sprint_duration = null
-stamina_regen_time = null
-stamina_recover_threshold = null
-fatigue_effect_power = null
-fatigue_sway_amount = null
-fatigue_roll_amount = null
-fatigue_blur_amount = null
-exhausted_rest_time = null
-max_health = null
-regen_enabled = null
-regen_delay = null
-regen_speed = null
-darken_below_percent = null
-restart_on_death = null
-death_delay = null
-debug_health_keys = null
-low_health_breath_min_db = null
-low_health_breath_max_db = null
-low_health_breath_pitch_min = null
-low_health_breath_pitch_max = null
-health_audio_smooth = null
-cough_sounds = null
-cough_start_intensity = null
-cough_interval_max = null
-cough_interval_min = null
-cough_volume_db = null
+low_health_breath_sound = ExtResource("2_0wngn")
 crouch_toggle = true
-crouch_speed = null
-crouch_height_ratio = null
-crouch_transition_speed = null
-crouch_footstep_db = null
-footstep_sounds = null
-step_distance = null
-footstep_volume_db = null
-debug_footsteps = null
-powierzchnie = Array[ExtResource("2_rtvxd")]([SubResource("Resource_4kq8q")])
-raycast_kroku_dlugosc = null
-breath_volume_db = null
-breath_min_volume_db = null
-breath_pitch_min = null
-breath_pitch_max = null
-breath_start_delay = null
-breath_recovery_time = null
-heartbeat_volume_db = null
-heartbeat_min_volume_db = null
-heartbeat_pitch_min = null
-heartbeat_pitch_max = null
-heartbeat_start_delay = null
-heartbeat_recovery_time = null
-sound_fade_time = null
-debug_sprint_audio = null
-bob_amount = null
-sway_amount = null
-sway_max = null
-sway_smooth = null
-start_with_flashlight = null
-held_root_name = null
-held_model_name = null
-anim_folder = null
-anim_blend = null
-sprint_anim_speed = null
-anim_transition_speed = null
-anim_spam_speed = null
-debug_animations = null
+breath_sound = ExtResource("2_0wngn")
+heartbeat_sound = ExtResource("5_8iu2w")
 jump_launch_ratio = 0.3
-jump_blocks_movement = null
-oczy_wlaczone = null
-oczy_min_przerwa = null
-oczy_max_przerwa = null
-oczy_klawisz_testowy = null
 
 [node name="FootstepPlayer" type="AudioStreamPlayer3D" parent="CharacterBody3D" unique_id=2063876596]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8494679, 1.4901161e-08)
 stream = ExtResource("4_wfnr8")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=879869326]
-transform = Transform3D(0.99797755, 0.0053022546, -0.06334572, -0.006189114, 0.9998855, -0.013812293, 0.06326523, 0.014176414, 0.997896, -0.0428108, 0.52046645, 0.06127333)
+transform = Transform3D(0.9979776, 0.0053022536, -0.06334571, -0.006189113, 0.9998855, -0.013812296, 0.06326521, 0.014176416, 0.9978961, -0.04146299, 0.4224379, 0.064876914)
 shape = SubResource("CapsuleShape3D_bhunq")
 
 [node name="cienie_gracza" type="Node3D" parent="CharacterBody3D" unique_id=832067043]
@@ -1241,7 +1168,7 @@ root_node = NodePath("../../../..")
 libraries/HERO = SubResource("AnimationLibrary_4kq8q")
 
 [node name="Camera3D" type="Camera3D" parent="CharacterBody3D" unique_id=794933290]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03952968, 0.7717346, 0.23141304)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03952968, 0.92338955, 0.15893379)
 doppler_tracking = 2
 near = 0.052
 
@@ -1257,7 +1184,7 @@ script = ExtResource("15_nw3qc")
 gracz = NodePath("../../..")
 
 [node name="Untitled_test animacji" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=430140981 instance=ExtResource("4_px5sl")]
-transform = Transform3D(-3.4969112e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.4969112e-09, 0.55304027, 0.50359243, -0.38987306)
+transform = Transform3D(-3.496911e-09, 0, 0.08, 0, 0.08, 0, -0.08, 0, -3.496911e-09, 0.55304027, 0.50359243, -0.38987306)
 script = ExtResource("17_1g2gg")
 nazwa_przedmiotu = "Latarka"
 item = ExtResource("18_rtvxd")
@@ -1275,12 +1202,20 @@ spot_angle_attenuation = 1.5691682
 script = ExtResource("3_wa5vi")
 battery_item = ExtResource("20_1g2gg")
 model_root = NodePath("../../../../../cienie_gracza/TEST_MAIN_HERO_ANIMATIONS")
+debug_animations = true
+debug_input = true
 reload_sound = ExtResource("5_jb3kq")
 toggle_sound = ExtResource("6_jb3kq")
 flicker_start_sound = ExtResource("7_7tnxx")
 dead_sound = ExtResource("8_bwfjh")
 
 [node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Untitled_test animacji" unique_id=400462674]
+
+[node name="bateria" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=2089090430 instance=ExtResource("25_4kq8q")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6037159, 0.47902012, -0.48205125)
+script = ExtResource("17_1g2gg")
+nazwa_przedmiotu = "bateria"
+item = ExtResource("20_1g2gg")
 
 [node name="InteractRay" type="RayCast3D" parent="CharacterBody3D/Camera3D" unique_id=1844702724]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08896881, 0, -5.9604645e-08)
@@ -1289,3 +1224,7 @@ collide_with_areas = true
 debug_shape_custom_color = Color(0.73333335, 0, 0, 1)
 
 [node name="powierzchnie" type="Node3D" parent="." unique_id=2108467324]
+
+[node name="czarnystwor" parent="." unique_id=1649121240 instance=ExtResource("7_8iu2w")]
+transform = Transform3D(-0.999988, 0, -0.004892417, 0, 1, 0, 0.004892417, 0, -0.999988, -0.25030237, 0, 2.1074462)
+debug_widzenie = true

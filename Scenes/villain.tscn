@@ -12,4 +12,4 @@
 shape = SubResource("SphereShape3D_bhunq")
 
 [node name="ptaqu_villain" parent="." unique_id=1117121935 instance=ExtResource("1_f31mc")]
-transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0.26381612, 0, 1.4464974)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.26381612, 0, 1.4464974)

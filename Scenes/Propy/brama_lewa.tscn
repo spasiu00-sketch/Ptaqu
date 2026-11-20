@@ -89,9 +89,10 @@ shadow_mesh = SubResource("ArrayMesh_20un8")
 size = Vector3(2.154892, 1.611084, 0.2584839)
 
 [node name="Brama_lewa" type="Node3D" unique_id=1877308856]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0)
 
 [node name="gate_l_s" type="Node3D" parent="." unique_id=1784571863]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0765867, 0, 0.06714347)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2259676, 0, 0.06714347)
 
 [node name="gate_P_003" type="MeshInstance3D" parent="gate_l_s" unique_id=829264995]
 transform = Transform3D(0.11286026, 0, 0, 0, 0.11286026, 0, 0, 0, 0.11286026, 2.2615013, 0.05495265, -0.05581677)
@@ -104,6 +105,7 @@ transform = Transform3D(8.860515, 0, 0, 0, 8.860515, 0, 0, 0, 8.860515, -20.3398
 shape = SubResource("BoxShape3D_riqys")
 
 [node name="gate_l" type="Node3D" parent="." unique_id=1623325685]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.156069, 0, 0)
 
 [node name="AnimatableBody3D" type="AnimatableBody3D" parent="gate_l" unique_id=413584914]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.9701915, 0.6621777, 0)
