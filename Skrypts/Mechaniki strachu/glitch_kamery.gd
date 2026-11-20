@@ -30,7 +30,6 @@ var _czas_trwania: float = 0.0
 
 
 func _ready() -> void:
-	add_to_group("glitch_kamery")
 	layer = 1   # pod HUD (2) i jumpscare (100+)
 
 	var shader := load("res://Shader/glitch.gdshader") as Shader

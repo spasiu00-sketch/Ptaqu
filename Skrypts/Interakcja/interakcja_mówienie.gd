@@ -27,11 +27,6 @@ var _audio: AudioStreamPlayer3D
 
 
 func _ready() -> void:
-	# po przeładowaniu sceny stan statyczny mógł zostać "zawieszony"
-	if _tween and _tween.is_valid():
-		_tween.kill()
-	_pisze = false
-
 	if dzwiek:
 		_audio = AudioStreamPlayer3D.new()
 		_audio.stream = dzwiek

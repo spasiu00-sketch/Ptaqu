@@ -1,14 +1,19 @@
 class_name PodgladPrzedmiotu
 extends CanvasLayer
+# Podgląd 3D przedmiotu z ekwipunku: model na środku ekranu, obracany myszką w dowolną stronę.
+# Model bierze z Item.scena_swiata, a jeśli puste, z kopii Item.szablon (zapamiętanej przy podniesieniu).
+# Używa własnego świata 3D (SubViewport), więc nie miesza się ze sceną gry.
+#
+# LPM (przeciągnij) = obracanie, kółko = zoom, R = reset widoku, PPM / Esc / Tab = zamknij
 
 signal zamknieto
 
 const DYSTANS_KAMERY := 2.4
-const ROZMIAR_MODELU := 1.0
+const ROZMIAR_MODELU := 1.0      # największy wymiar modelu po przeskalowaniu (jednostki)
 const MIN_ZOOM := 0.5
 const MAX_ZOOM := 3.0
-const CZULOSC := 0.008
-const BEZWLADNOSC := 3.0
+const CZULOSC := 0.008           # rad na piksel ruchu myszy
+const BEZWLADNOSC := 3.0         # im większe, tym szybciej model przestaje się kręcić po puszczeniu
 const PODPOWIEDZ := "LPM (przeciągnij) — obracaj      KÓŁKO — przybliż      R — reset      PPM / ESC — zamknij"
 
 var otwarty: bool = false
@@ -33,14 +38,15 @@ var _cel_zoom: float = 1.0
 
 
 func _ready() -> void:
-	layer = 5   # nad paskiem 1-9 (4) i ekwipunkiem (3), pod jumpscare (100+)
-	add_to_group("podglad_przedmiotu")
+	layer = 4   # nad ekwipunkiem (3), pod jumpscare (100+)
 	visible = false
 	set_process(false)
 	_zbuduj()
 	_uklad()
 	get_viewport().size_changed.connect(_uklad)
 
+
+# ---------- Budowa ----------
 
 func _zbuduj() -> void:
 	var f := SystemFont.new()
@@ -60,6 +66,7 @@ func _zbuduj() -> void:
 	tlo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(tlo)
 
+	# własny świat 3D z przezroczystym tłem
 	_kontener = SubViewportContainer.new()
 	_kontener.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_kontener.stretch = true
@@ -100,6 +107,7 @@ func _zbuduj() -> void:
 	_pivot = Node3D.new()
 	_vp.add_child(_pivot)
 
+	# warstwa łapiąca mysz (nad widokiem 3D)
 	_lapacz = Control.new()
 	_lapacz.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_lapacz.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -107,6 +115,7 @@ func _zbuduj() -> void:
 	_lapacz.gui_input.connect(_on_gui_input)
 	_root.add_child(_lapacz)
 
+	# napisy
 	_margines = MarginContainer.new()
 	_margines.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_margines.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -151,6 +160,9 @@ func _uklad() -> void:
 	_podpowiedz.add_theme_font_size_override("font_size", clampi(int(h * 0.026), 12, 26))
 
 
+# ---------- Otwieranie / zamykanie ----------
+
+# Zwraca false, gdy przedmiot nie ma modelu 3D
 func pokaz(item: Item) -> bool:
 	if item == null:
 		return false
@@ -203,6 +215,8 @@ func _reset_widoku() -> void:
 	_zoom = 1.0
 
 
+# ---------- Model ----------
+
 func _zrob_model(item: Item) -> Node3D:
 	var zrodlo: Node3D = null
 	if item.scena_swiata != null:
@@ -216,14 +230,8 @@ func _zrob_model(item: Item) -> Node3D:
 	return zrodlo
 
 
-# Zostawia same wizualia i zamraża RigidBody3D, żeby przedmiot nie spadał w podglądzie
+# Zostawia same wizualia: bez skryptów, kolizji, świateł i dźwięków
 func _oczysc(wezel: Node) -> void:
-	if wezel is RigidBody3D:
-		var rb := wezel as RigidBody3D
-		rb.freeze = true
-		rb.gravity_scale = 0.0
-		rb.linear_velocity = Vector3.ZERO
-		rb.angular_velocity = Vector3.ZERO
 	for dziecko in wezel.get_children():
 		if dziecko is CollisionShape3D or dziecko is CollisionPolygon3D \
 				or dziecko is Light3D or dziecko is AudioStreamPlayer3D:
@@ -234,6 +242,8 @@ func _oczysc(wezel: Node) -> void:
 	wezel.set_script(null)
 
 
+# Skaluje model do ROZMIAR_MODELU i ustawia jego środek w punkcie obrotu.
+# Obrys liczony względem pivota (nie świata), więc obrót z poprzedniego oglądania nie psuje wyniku.
 func _wysrodkuj() -> void:
 	var meshe: Array = _model.find_children("*", "GeometryInstance3D", true, false)
 	if _model is GeometryInstance3D:
@@ -262,9 +272,12 @@ func _wysrodkuj() -> void:
 	_model.position = -obrys.get_center() * s
 
 
+# ---------- Wejście ----------
+
 func _input(event: InputEvent) -> void:
 	if not otwarty:
 		return
+	# Esc / Tab zamykają tylko podgląd (ekwipunek zostaje otwarty)
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("inventory"):
 		zamknij()
 		get_viewport().set_input_as_handled()
@@ -292,6 +305,7 @@ func _on_gui_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	# obrót wokół osi ekranu (pełna swoboda, bez blokady góra/dół) + bezwładność po puszczeniu
 	var d := _ruch * CZULOSC
 	_ruch = Vector2.ZERO
 	if _drag:

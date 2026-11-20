@@ -15,12 +15,13 @@ const IDLE_BREATH_AMOUNT := 0.002
 const IDLE_BREATH_SPEED := 1.5
 const CAPSULE_MIN_MARGIN := 0.01
 
-const BOB_FREQ := 2.4
-const BOB_AMP_Y := 0.04
-const BOB_AMP_X := 0.05
+# --- Poprawione ustawienia Head Bobbing (zmniejszona amplituda Y dla płynniejszego horyzontu) ---
+const BOB_FREQ := 1.8
+const BOB_AMP_Y := 0.012
+const BOB_AMP_X := 0.015
 const BOB_ROLL := 0.025
 const BOB_SMOOTH := 10.0
-const BOB_SPRINT_AMP := 1.6
+const BOB_SPRINT_AMP := 1.2
 const BOB_SPRINT_ROLL := 1.8
 const BOB_CROUCH_AMP := 0.5
 
@@ -56,7 +57,8 @@ void fragment() {
 const InventoryUIScript := preload("res://Skrypts/Ekwipunek/inventory_ui.gd")
 const HealthOverlayScript := preload("res://Skrypts/Postać/zdrowie_ekran.gd")
 const OczyScript := preload("res://Skrypts/Mechaniki strachu/oczy_zjawa.gd")
-const PrzenoszenieScript := preload("res://Skrypts/Postać/przenoszenie.gd")
+const EkranSmierciScript := preload("res://Skrypts/Postać/ekran_smierci.gd")
+const AudioLoop := preload("res://Skrypts/MENU/audio_loop.gd")
 
 const INPUT_KEYS := {
 	"forward": KEY_W,
@@ -91,9 +93,7 @@ const INPUT_KEYS := {
 @export var regen_delay: float = 8.0
 @export var regen_speed: float = 1.5
 @export_range(1.0, 100.0, 1.0) var darken_below_percent: float = 70.0
-@export var restart_on_death: bool = false
-@export var death_delay: float = 3.0
-@export var debug_health_keys: bool = true
+@export var debug_health_keys: bool = true   # F3 / F4, działa tylko w buildzie debug
 
 @export_group("Życie - oddech i kaszel")
 @export var low_health_breath_sound: AudioStream
@@ -120,15 +120,6 @@ const INPUT_KEYS := {
 @export var step_distance: float = 2.0
 @export var footstep_volume_db: float = 0.0
 @export var debug_footsteps: bool = false
-
-@export_group("Kroki - powierzchnie")
-## Węzeł Terrain3D. Puste = gracz sam go znajdzie w scenie przy pierwszym kroku.
-@export var terrain: Node3D
-## Powierzchnie rozpoznawane po ID tekstury z Terrain3D albo po grupie podłogi.
-## Gdy nic nie pasuje, grają dźwięki domyślne z "Footstep Sounds" powyżej.
-@export var powierzchnie: Array[PowierzchniaKrokow] = []
-## Jak głęboko pod graczem szukać podłogi (raycast w dół, do rozpoznawania grup).
-@export var raycast_kroku_dlugosc: float = 2.0
 
 @export_group("Sprint - sapanie")
 @export var breath_sound: AudioStream
@@ -180,14 +171,12 @@ const INPUT_KEYS := {
 @export var oczy_max_przerwa: float = 70.0
 @export var oczy_klawisz_testowy: Key = KEY_F5
 
-@export_group("Przenoszenie")
-@export var przenoszenie_wlaczone: bool = true
-
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var camera: Camera3D = $Camera3D
+var camera_base_pos: Vector3 = Vector3.ZERO
 
-var footstep_player = null
+var footstep_player: AudioStreamPlayer = null
 var breath_player: AudioStreamPlayer = null
 var heart_player: AudioStreamPlayer = null
 var interact_ray: RayCast3D = null
@@ -197,9 +186,13 @@ var held_root: Node3D = null
 var prompt_label: Label
 var inventory_ui = null
 var oczy = null
-var przenoszenie = null
 
 var kontrola_zablokowana: bool = false
+var kamera_zablokowana: bool = false
+
+# Używane przez inne skrypty (jumpscare.gd, cien_gracza.gd):
+var shake_offset: Vector2 = Vector2.ZERO          # chwilowy wstrząs kamery (h_offset / v_offset)
+var camera_extra_offset: Vector3 = Vector3.ZERO   # dodatkowe przesunięcie kamery (lokalnie)
 
 var health: float = 100.0
 var health_overlay = null
@@ -217,13 +210,12 @@ var _fatigue: float = 0.0
 var _fatigue_time: float = 0.0
 var _fatigue_blur_mat: ShaderMaterial = null
 var _fatigue_blur_rect: ColorRect = null
+var _fatigue_blur_copy: BackBufferCopy = null
 
 var _h_speed: float = 0.0
 var _moving: bool = false
 var _sprinting: bool = false
 var step_progress: float = 0.0
-var _teren_szukany: bool = false
-var _ostrzezono_brak_krokow: bool = false
 
 var _sprint_time: float = 0.0
 var _breath_left: float = 0.0
@@ -247,6 +239,7 @@ var _jump_wait: float = 0.0
 var bob_czas := 0.0
 var _head_bob_offset := Vector3.ZERO
 var _head_bob_roll: float = 0.0
+var _applied_extra := Vector3.ZERO
 
 var held_base_pos := Vector3.ZERO
 var held_base_rot := Vector3.ZERO
@@ -258,6 +251,7 @@ var mouse_input := Vector2.ZERO
 
 
 func _ready() -> void:
+	camera_base_pos = camera.position
 	set_process(false)
 	_setup_input_actions()
 	_setup_footstep_player()
@@ -272,9 +266,7 @@ func _ready() -> void:
 	_setup_health()
 	_setup_oczy()
 	_setup_fatigue_blur()
-	_setup_glitch.call_deferred()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_setup_przenoszenie()
 
 
 func _find_nodes() -> void:
@@ -340,6 +332,7 @@ func _setup_oczy() -> void:
 	oczy.min_przerwa = oczy_min_przerwa
 	oczy.max_przerwa = oczy_max_przerwa
 	oczy.klawisz_testowy = oczy_klawisz_testowy
+	oczy.tryb_testowy = OS.is_debug_build()
 	add_child(oczy)
 
 
@@ -420,7 +413,7 @@ func _update_animation() -> void:
 		_transition = ""
 
 	if (_jump_pending or (_jumped and not is_on_floor())) and anim_player.has_animation(HERO_LIB + "/jump"):
-		anim_player.speed_scale = 3.0
+		anim_player.speed_scale = 1.0
 		_play_anim("jump")
 		return
 
@@ -449,6 +442,11 @@ func _setup_fatigue_blur() -> void:
 	shader.code = FATIGUE_BLUR_SHADER
 	_fatigue_blur_mat = ShaderMaterial.new()
 	_fatigue_blur_mat.shader = shader
+
+	_fatigue_blur_copy = BackBufferCopy.new()
+	_fatigue_blur_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_fatigue_blur_copy.visible = false
+	warstwa.add_child(_fatigue_blur_copy)
 
 	_fatigue_blur_rect = ColorRect.new()
 	_fatigue_blur_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -491,8 +489,11 @@ func _update_fatigue_blur() -> void:
 	if _fatigue_blur_rect == null or _fatigue_blur_mat == null:
 		return
 	var blisko := pow(_fatigue, fatigue_effect_power)
-	_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
-	_fatigue_blur_rect.visible = blisko > 0.01
+	var widoczne := blisko > 0.01
+	if widoczne:
+		_fatigue_blur_mat.set_shader_parameter("sila", clampf(blisko * fatigue_blur_amount, 0.0, 1.0))
+	_fatigue_blur_rect.visible = widoczne
+	_fatigue_blur_copy.visible = widoczne
 
 
 func _can_sprint() -> bool:
@@ -507,6 +508,10 @@ func is_resting() -> bool:
 	return _rest_left > 0.0
 
 
+func moze_sterowac() -> bool:
+	return not _dead and not kontrola_zablokowana and not _inventory_open()
+
+
 func _setup_health() -> void:
 	health = max_health
 	_since_damage = 0.0
@@ -519,7 +524,7 @@ func _setup_health() -> void:
 	low_breath_player.name = "LowHealthBreathPlayer"
 	low_breath_player.volume_db = low_health_breath_min_db
 	add_child(low_breath_player)
-	_prepare_loop(low_health_breath_sound)
+	AudioLoop.zapetl(low_health_breath_sound)
 
 	cough_player = AudioStreamPlayer.new()
 	cough_player.name = "CoughPlayer"
@@ -610,21 +615,14 @@ func _update_health(delta: float) -> void:
 		_set_health(health + regen_speed * delta)
 
 
-func _setup_glitch() -> void:
-	if get_tree().get_first_node_in_group("glitch_kamery") != null:
-		return
-	add_child(GlitchKamery.new())
-
-
 func _die() -> void:
+	kamera_zablokowana = false
 	if _dead:
 		return
 	_dead = true
 	died.emit()
 	if oczy != null:
 		oczy.wlaczony = false
-	if przenoszenie != null:
-		przenoszenie.puszcz()
 	if _inventory_open():
 		_toggle_inventory()
 	if prompt_label:
@@ -632,59 +630,10 @@ func _die() -> void:
 	if health_overlay:
 		health_overlay.smierc()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_show_death_screen()
 
-
-func _show_death_screen() -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "DeathScreen"
-	layer.layer = 100
-	add_child(layer)
-
-	var background := ColorRect.new()
-	background.name = "DarkBackground"
-	background.color = Color(0.0, 0.0, 0.0, 0.82)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(background)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.add_child(center)
-
-	var layout := VBoxContainer.new()
-	layout.alignment = BoxContainer.ALIGNMENT_CENTER
-	layout.add_theme_constant_override("separation", 28)
-	layout.custom_minimum_size = Vector2(420, 0)
-	center.add_child(layout)
-
-	var title := Label.new()
-	title.text = "UMARŁEŚ"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 58)
-	title.add_theme_color_override("font_color", Color(0.8, 0.05, 0.05))
-	layout.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Twoja historia dobiegła końca..."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 20)
-	subtitle.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
-	layout.add_child(subtitle)
-
-	var retry := Button.new()
-	retry.text = "SPRÓBUJ PONOWNIE"
-	retry.custom_minimum_size = Vector2(280, 58)
-	retry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	retry.add_theme_font_size_override("font_size", 22)
-	retry.pressed.connect(_restart_after_death)
-	layout.add_child(retry)
-
-
-func _restart_after_death() -> void:
-	if Inventory != null and Inventory.has_method("reset"):
-		Inventory.reset()
-	get_tree().reload_current_scene()
+	var ekran := EkranSmierciScript.new()
+	add_child(ekran)
+	ekran.pokaz()
 
 
 func _inventory_open() -> bool:
@@ -788,6 +737,7 @@ func _set_crouching(state: bool) -> void:
 	set_process(true)
 
 
+# --- Poprawiona obsługa pozycji kamery przy kucaniu ---
 func _update_crouch_camera(delta: float) -> bool:
 	var target := -(_stand_h - _crouch_h) if _crouching else 0.0
 	if _cam_offset == target:
@@ -795,8 +745,9 @@ func _update_crouch_camera(delta: float) -> bool:
 	var new_offset := lerpf(_cam_offset, target, 1.0 - exp(-crouch_transition_speed * delta))
 	if absf(new_offset - target) < 0.001:
 		new_offset = target
-	camera.position.y += new_offset - _cam_offset
 	_cam_offset = new_offset
+
+	camera.position = camera_base_pos + Vector3(0.0, _cam_offset, 0.0) + _head_bob_offset + _applied_extra
 	return new_offset != target
 
 
@@ -815,7 +766,8 @@ func _add_key_action(action: String, key: Key) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if debug_health_keys and event is InputEventKey and event.pressed and not event.echo:
+	if debug_health_keys and OS.is_debug_build() \
+			and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F3:
 			take_damage(10.0)
 		elif event.physical_keycode == KEY_F4:
@@ -836,7 +788,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
-			and not kontrola_zablokowana:
+			and not kontrola_zablokowana and not kamera_zablokowana:
 		_look(event.relative)
 
 	if event.is_action_pressed("interact") and not event.is_echo() and not kontrola_zablokowana:
@@ -858,17 +810,8 @@ func _get_interact_target() -> Object:
 	if interact_ray == null or not interact_ray.is_colliding():
 		return null
 	var target := interact_ray.get_collider()
-	if not is_instance_valid(target):
-		return null
-	if target.has_method("interact"):
+	if is_instance_valid(target) and target.has_method("interact"):
 		return target
-	if target is Node:
-		var rodzic: Node = target.get_parent()
-		if is_instance_valid(rodzic) and rodzic.has_method("interact"):
-			return rodzic
-		for dziecko in target.get_children():
-			if dziecko.has_method("interact"):
-				return dziecko
 	return null
 
 
@@ -879,12 +822,12 @@ func _try_interact() -> void:
 
 
 func give_flashlight() -> void:
+	if flashlight:
+		flashlight.pick_up()
 	if held_root:
 		held_root.visible = true
 		mouse_input = Vector2.ZERO
 		set_process(true)
-	if flashlight:
-		flashlight.pick_up()
 
 
 func schowaj_latarke() -> void:
@@ -892,18 +835,7 @@ func schowaj_latarke() -> void:
 		flashlight.zabierz()
 	if held_root:
 		held_root.visible = false
-
-
-func ustaw_widocznosc_latarki(widoczna: bool) -> void:
-	if flashlight == null or not flashlight.unlocked:
-		return
-	if held_root:
-		held_root.visible = widoczna
-		if widoczna:
-			mouse_input = Vector2.ZERO
-			set_process(true)
-	if not widoczna and flashlight.is_on:
-		flashlight._set_light(false)
+	mouse_input = Vector2.ZERO
 
 
 func _create_prompt_label() -> void:
@@ -928,20 +860,17 @@ func _update_prompt() -> void:
 	var target := _get_interact_target()
 	prompt_label.visible = target != null and not _inventory_open() and not kontrola_zablokowana
 	if target:
-		var prefix = target.get("prompt_prefix")
-		var tekst = target.get("prompt_text")
-		if tekst == null:
-			tekst = target.get("text")
-		prompt_label.text = (str(prefix) if prefix != null else "[E] ") + (str(tekst) if tekst != null else "Użyj")
+		var text = target.get("prompt_text")
+		var prefix = target.get("prompt_prefix")   # drzwi/szuflady podają "[LPM] ", reszta zostaje na "[E] "
+		prompt_label.text = (str(prefix) if prefix != null else "[E] ") + (str(text) if text != null else "Użyj")
 
 
 func _setup_footstep_player() -> void:
-	footstep_player = find_child("FootstepPlayer", true, false)
+	footstep_player = find_child("FootstepPlayer", true, false) as AudioStreamPlayer
 	if footstep_player == null:
 		footstep_player = AudioStreamPlayer.new()
 		footstep_player.name = "FootstepPlayer"
 		add_child(footstep_player)
-		print("Utworzono FootstepPlayer w kodzie")
 	footstep_player.volume_db = footstep_volume_db
 	footstep_player.max_polyphony = 3
 
@@ -957,92 +886,23 @@ func _handle_footsteps(delta: float) -> void:
 		step_progress = maxf(step_distance, 0.1)
 
 
-func _setup_przenoszenie() -> void:
-	if not przenoszenie_wlaczone:
-		return
-	przenoszenie = PrzenoszenieScript.new()
-	przenoszenie.gracz = self
-	add_child(przenoszenie)
-
-
 func _play_step() -> void:
-	var powierzchnia := _wykryj_powierzchnie()
-
-	var dzwieki: Array[AudioStream] = footstep_sounds
-	var korekta_db := 0.0
-	if powierzchnia != null and not powierzchnia.dzwieki.is_empty():
-		dzwieki = powierzchnia.dzwieki
-		korekta_db = powierzchnia.glosnosc_db
-
-	if not dzwieki.is_empty():
-		footstep_player.stream = dzwieki.pick_random()
+	if not footstep_sounds.is_empty():
+		footstep_player.stream = footstep_sounds.pick_random()
 	if footstep_player.stream == null:
-		if not _ostrzezono_brak_krokow:
-			_ostrzezono_brak_krokow = true
-			push_warning("Gracz: brak dźwięków kroków. Uzupełnij 'Footstep Sounds' (grupa Kroki) albo dźwięki w powierzchni.")
 		return
-
 	footstep_player.pitch_scale = randf_range(0.9, 1.1)
-	footstep_player.volume_db = footstep_volume_db + korekta_db + (crouch_footstep_db if _crouching else 0.0)
+	footstep_player.volume_db = footstep_volume_db + (crouch_footstep_db if _crouching else 0.0)
 	footstep_player.play()
 	if debug_footsteps:
-		print("krok | powierzchnia: ", powierzchnia.nazwa if powierzchnia != null else "domyślna")
-
-
-func _wykryj_powierzchnie() -> PowierzchniaKrokow:
-	if powierzchnie.is_empty():
-		return null
-
-	var od := global_position + Vector3.UP * 0.1
-	var zapytanie := PhysicsRayQueryParameters3D.create(od, od + Vector3.DOWN * raycast_kroku_dlugosc)
-	zapytanie.exclude = [get_rid()]
-	var trafienie := get_world_3d().direct_space_state.intersect_ray(zapytanie)
-	if not trafienie.is_empty():
-		var podloga := trafienie["collider"] as Node
-		if podloga != null:
-			for p in powierzchnie:
-				if p != null and p.grupa != &"" and podloga.is_in_group(p.grupa):
-					if debug_footsteps:
-						print("grupa podłogi: ", p.grupa)
-					return p
-
-	var id := _id_tekstury_terenu()
-	if debug_footsteps:
-		print("ID tekstury Terrain3D: ", id)
-	if id >= 0:
-		for p in powierzchnie:
-			if p != null and p.id_tekstury == id:
-				return p
-	return null
-
-
-func _id_tekstury_terenu() -> int:
-	if terrain == null:
-		if _teren_szukany:
-			return -1
-		_teren_szukany = true
-		var znalezione := get_tree().root.find_children("*", "Terrain3D", true, false)
-		if znalezione.is_empty():
-			push_warning("Gracz: nie znaleziono węzła Terrain3D. Przypisz go w polu 'Terrain' (grupa Kroki - powierzchnie).")
-			return -1
-		terrain = znalezione[0] as Node3D
-		if terrain == null:
-			return -1
-
-	var dane = terrain.get("data")
-	if dane == null:
-		return -1
-	var tekstura: Vector3 = dane.get_texture_id(global_position)
-	if is_nan(tekstura.x) or is_nan(tekstura.y):
-		return -1
-	return int(tekstura.y) if tekstura.z > 0.5 else int(tekstura.x)
+		print("krok")
 
 
 func _setup_sprint_audio() -> void:
 	breath_player = _make_loop_player("BreathPlayer", breath_volume_db)
 	heart_player = _make_loop_player("HeartPlayer", heartbeat_volume_db)
-	_prepare_loop(breath_sound)
-	_prepare_loop(heartbeat_sound)
+	AudioLoop.zapetl(breath_sound)
+	AudioLoop.zapetl(heartbeat_sound)
 	if breath_sound == null:
 		push_warning("Brak dźwięku sapania: uzupełnij 'Breath Sound' w Inspektorze gracza (grupa Sprint - sapanie)")
 	if heartbeat_sound == null:
@@ -1057,13 +917,6 @@ func _make_loop_player(player_name: String, volume_db: float) -> AudioStreamPlay
 		add_child(p)
 	p.volume_db = volume_db
 	return p
-
-
-func _prepare_loop(stream: AudioStream) -> void:
-	if stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
-	elif stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = true
 
 
 func _update_sprint_audio(delta: float) -> void:
@@ -1141,13 +994,10 @@ func _process(delta: float) -> void:
 
 
 func _update_held_flashlight(delta: float) -> void:
-	mouse_input = Vector2.ZERO
-	if flashlight != null and flashlight.is_busy:
-		return
-
 	var smooth := 1.0 - exp(-sway_smooth * delta)
 	bob_current = bob_current.lerp(_calc_target_bob(delta), smooth)
 	sway_current = sway_current.lerp(_calc_target_sway(), smooth)
+	mouse_input = Vector2.ZERO
 
 	held_flashlight.position = held_base_pos + bob_current
 	held_flashlight.rotation = held_base_rot + sway_current
@@ -1271,6 +1121,7 @@ func _apply_movement(delta: float) -> void:
 	velocity.z = horizontal.y
 
 
+# --- Bezpieczne obliczanie Head Bobbing względem pozycji bazowej (bez accumulowania '+=') ---
 func _update_head_bob(delta: float) -> void:
 	var cel_poz := Vector3.ZERO
 	var cel_roll := 0.0
@@ -1295,19 +1146,18 @@ func _update_head_bob(delta: float) -> void:
 
 	var smooth := 1.0 - exp(-BOB_SMOOTH * delta)
 
-	var nowy_poz := _head_bob_offset.lerp(cel_poz, smooth)
-	camera.position += nowy_poz - _head_bob_offset
-	_head_bob_offset = nowy_poz
-
+	_head_bob_offset = _head_bob_offset.lerp(cel_poz, smooth)
+	_applied_extra = _applied_extra.lerp(camera_extra_offset, smooth)
 	_head_bob_roll = lerpf(_head_bob_roll, cel_roll, smooth)
 
 	var blisko := pow(_fatigue, fatigue_effect_power)
 	_fatigue_time += delta * (1.0 + blisko * 1.5)
-	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko
-	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko
+	camera.h_offset = sin(_fatigue_time * 1.3) * fatigue_sway_amount * blisko + shake_offset.x
+	camera.v_offset = sin(_fatigue_time * 2.1) * fatigue_sway_amount * 0.6 * blisko + shake_offset.y
 	var fatigue_roll := sin(_fatigue_time * 0.9) * fatigue_roll_amount * blisko
 
 	camera.rotation.z = _head_bob_roll + fatigue_roll
+	camera.position = camera_base_pos + Vector3(0.0, _cam_offset, 0.0) + _head_bob_offset + _applied_extra
 
 
 func _disable_collisions(node: Node) -> void:

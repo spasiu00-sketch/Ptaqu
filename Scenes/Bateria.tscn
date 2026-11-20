@@ -2,24 +2,21 @@
 
 [ext_resource type="PackedScene" uid="uid://davcdpiai8ifb" path="res://Models/Battery/Bateria.glb" id="1_e513j"]
 [ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/Postać/przedmiot.gd" id="1_n4fnb"]
-[ext_resource type="Script" uid="uid://dwx1scmyoat51" path="res://Skrypts/Postać/przedmiot_wrece.gd" id="1_ol3ys"]
 [ext_resource type="Resource" uid="uid://d1jcry5yjguiv" path="res://Items/Bateria.tres" id="2_oxrd0"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sn0t7"]
 size = Vector3(0.16845703, 0.13320541, 0.1360035)
 
-[node name="Bateria" type="RigidBody3D" unique_id=320816475]
+[node name="Bateria" type="Node3D" unique_id=233667880]
 transform = Transform3D(0.08, 0, 0, 0, 0.08, 0, 0, 0, 0.08, 0, 0, 0)
-script = ExtResource("1_ol3ys")
 
-[node name="StaticBody3D" type="RigidBody3D" parent="." unique_id=1136672998]
-transform = Transform3D(1, 0, 0, 0, 0.99979866, -0.020065371, 0, 0.020065371, 0.99979866, 0, 0, 0)
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=130125789]
 script = ExtResource("1_n4fnb")
 daje_latarke = false
 item = ExtResource("2_oxrd0")
 
 [node name="Bateria2" parent="StaticBody3D" unique_id=729897616 instance=ExtResource("1_e513j")]
-transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0.019648552, 1.1920929e-07, -0.025056899)
+transform = Transform3D(0.08, 0, 0, 0, 0.08, 0, 0, 0, 0.08, 0.019648552, 1.1920929e-07, -0.025056899)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=58786536]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.020263672, 0.010019302, -0.026461601)

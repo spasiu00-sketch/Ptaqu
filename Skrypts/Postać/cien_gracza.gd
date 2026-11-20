@@ -28,7 +28,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not tryb_testowy or not OS.is_debug_build():
+	if not tryb_testowy:
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.physical_keycode == klawisz_testowy:

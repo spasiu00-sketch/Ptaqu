@@ -94,7 +94,6 @@ func _play_sfx(player: AudioStreamPlayer, stream: AudioStream, delay: float = 0.
 func _ensure_key_action(action: String, key: Key) -> void:
 	if not InputMap.has_action(action):
 		InputMap.add_action(action)
-	if InputMap.action_get_events(action).is_empty():
 		var ev := InputEventKey.new()
 		ev.physical_keycode = key
 		InputMap.action_add_event(action, ev)
@@ -103,10 +102,6 @@ func _ensure_key_action(action: String, key: Key) -> void:
 # ---------- Sprawdzanie wyposażenia ----------
 
 func _latarka_wyposazona() -> bool:
-	if not unlocked:
-		return false
-	if model_root != null and model_root != self and is_instance_valid(model_root):
-		return model_root.is_visible_in_tree()
 	return is_visible_in_tree()
 
 
@@ -166,10 +161,12 @@ func _collect_players(node: Node, out: Array) -> void:
 		_collect_players(child, out)
 
 
+# Szukamy animacji w całym graczu (gdy model_root nie zawiera AnimationPlayera z animacją baterii)
 func _search_root() -> Node:
 	return _gracz if _gracz != null else model_root
 
 
+# Najpierw odtwarzacze z model_root, potem reszta gracza
 func _all_players() -> Array:
 	var players: Array = []
 	_collect_players(model_root, players)
@@ -202,6 +199,7 @@ func _find_animation(anim_name: StringName, used: Array) -> Dictionary:
 	return {}
 
 
+# Czy wszystkie zbudowane odtwarzacze nadal żyją i wiszą w drzewie
 func _players_ok() -> bool:
 	var jest := false
 	for p in _players:
@@ -214,6 +212,7 @@ func _players_ok() -> bool:
 
 
 func _build_players() -> void:
+	# sprzątamy stare odtwarzacze, żeby się nie dublowały
 	for stary in _players:
 		if stary != null and is_instance_valid(stary):
 			if stary.get_parent() != null:
@@ -249,7 +248,7 @@ func _build_players() -> void:
 			_players.append(null)
 			continue
 
-		_save_rest_pose(root, false)
+		_save_rest_pose(root, false)   # żeby po animacji przywrócić też węzły spoza model_root
 		var anim: Animation = src.get_animation(key).duplicate()
 		anim.loop_mode = Animation.LOOP_NONE
 		_fix_track_paths(anim, root, n)
@@ -364,6 +363,7 @@ func _fix_track_paths(anim: Animation, root: Node, anim_name: StringName) -> voi
 
 
 func _play_all() -> void:
+	# odtwarzacze mogły zniknąć (przepięty / zduplikowany model): odbuduj je
 	if model_root == null or not is_instance_valid(model_root):
 		_setup_model()
 	elif not _players_ok():
@@ -447,20 +447,12 @@ func _toggle_light() -> void:
 # ---------- Wejście ----------
 
 func _wejscie_zablokowane() -> bool:
-	if _gracz == null:
+	if _gracz == null or not _gracz.has_method("moze_sterowac"):
 		return false
-	if _gracz.has_method("is_dead") and bool(_gracz.call("is_dead")):
-		return true
-	if _gracz.has_method("_inventory_open") and bool(_gracz.call("_inventory_open")):
-		return true
-	if _gracz.get("kontrola_zablokowana"):
-		return true
-	return false
+	return not _gracz.call("moze_sterowac")
 
 
-func _input(event: InputEvent) -> void:
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
+func _unhandled_input(event: InputEvent) -> void:
 	if not unlocked or not _latarka_wyposazona() or is_busy or _wejscie_zablokowane():
 		return
 
@@ -468,17 +460,16 @@ func _input(event: InputEvent) -> void:
 		_f_down = true
 		_f_time = 0.0
 		_f_handled = false
-		get_viewport().set_input_as_handled()
 
 	elif event.is_action_released("flashlight"):
 		if _f_down and not _f_handled:
 			_toggle_light()
 		_f_down = false
 		_f_handled = false
-		get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
+	# Schowana latarka nie działa i nie zużywa baterii.
 	if not _latarka_wyposazona():
 		_f_down = false
 		_f_handled = false
