@@ -8,14 +8,16 @@
 size = Vector3(0.33805847, 0.16333008, 0.19915771)
 
 [node name="Latarka" type="Node3D" unique_id=1327510861]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, 0, 0, 0)
 
-[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=42601452]
+[node name="Untitled_test animacji" parent="." unique_id=397617511 instance=ExtResource("2_0qj7l")]
+transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 0, -0.016186073)
+
+[node name="StaticBody3D" type="RigidBody3D" parent="Untitled_test animacji" unique_id=672862343]
+transform = Transform3D(20, 0, 0, 0, 20, 0, 0, 0, 20, 0, 0, 0.012618601)
 script = ExtResource("1_08r3g")
 item = ExtResource("2_puv63")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1342691050]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Untitled_test animacji/StaticBody3D" unique_id=1342691050]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 0.01679182, -0.009185791)
 shape = SubResource("BoxShape3D_bhunq")
-
-[node name="flashlight" parent="StaticBody3D" unique_id=603090498 instance=ExtResource("2_0qj7l")]
-transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 0, 0)

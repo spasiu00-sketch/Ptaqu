@@ -5,6 +5,7 @@
 
 [node name="czarnystwor" type="Node3D" unique_id=1649121240]
 script = ExtResource("1_41p2k")
+scena = ExtResource("2_xwgct")
 
 [node name="ptaqu_villain" parent="." unique_id=1899268102 instance=ExtResource("2_xwgct")]
 transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0)

@@ -27,6 +27,7 @@ const COL_EMPTY_BORDER := Color(0.10, 0.07, 0.07)
 const COL_TEXT := Color(0.83, 0.79, 0.73)
 const COL_TEXT_DIM := Color(0.52, 0.47, 0.43)
 const COL_BLOOD := Color(0.82, 0.14, 0.11)
+const KLAWISZ_WYRZUCANIA := KEY_G
 
 var gracz: Node
 var otwarty: bool = false
@@ -473,7 +474,8 @@ func _pokaz_tip() -> void:
 	_tip_opis.text = it.opis
 	_tip_opis.visible = ma_opis
 	_tip_linia.visible = ma_opis
-	_tip_podpowiedz.visible = _mozna_uzyc(it)
+	_tip_podpowiedz.text = ("PPM — użyj      " if _mozna_uzyc(it) else "") + "G — wyrzuć"
+	_tip_podpowiedz.visible = true
 	_tip.reset_size()
 	_tip.visible = true
 	_ustaw_pozycje_tip()
@@ -513,6 +515,18 @@ func _jest_bateria(item: Item, latarka: Node) -> bool:
 		return true
 	return latarka != null and bool(latarka.call("jest_bateria", item))
 
+func _input(event: InputEvent) -> void:
+	if not otwarty or _przeciaga or _inv == null:
+		return
+	if _podglad != null and _podglad.otwarty:
+		return
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KLAWISZ_WYRZUCANIA:
+		var cel := _hover if (_hover >= 0 and _inv.sloty[_hover] != null) else _wybrany
+		if cel >= 0 and _inv.sloty[cel] != null:
+			_wybrany = cel
+			_wyrzuc()
+		get_viewport().set_input_as_handled()
 
 func _latarka() -> Node:
 	return gracz.get("flashlight") if gracz != null else null

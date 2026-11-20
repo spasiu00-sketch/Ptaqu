@@ -1,4 +1,4 @@
-extends StaticBody3D
+extends PhysicsBody3D
 # Przedmiot leżący na ziemi. Gracz podnosi go klawiszem E (patrz character_body_3d.gd).
 # Skrypt wisi na węźle StaticBody3D. Model i kolizja są jego dziećmi albo rodzeństwem w tej samej scenie.
 

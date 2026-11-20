@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://7eodsibmmf2u" path="res://Skrypts/MENU/Intro.gd" id="14_u5pcf"]
 [ext_resource type="Script" uid="uid://c2pdrxisw4v5h" path="res://Skrypts/MENU/Pauza.gd" id="15_ihq08"]
 [ext_resource type="PackedScene" uid="uid://dexy5pm15hq7k" path="res://mapa_gry.tscn" id="15_u5pcf"]
+[ext_resource type="PackedScene" uid="uid://b5pt1mu1r7cw5" path="res://Scenes/mechaniki_strachu/czarnystwor.tscn" id="19_46op0"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_57qmd"]
 albedo_texture = ExtResource("1_u7jam")
@@ -162,15 +163,6 @@ grow_vertical = 2
 mouse_filter = 2
 metadata/_edit_use_anchors_ = true
 
-[node name="Latarka" parent="." unique_id=1327510861 instance=ExtResource("4_redxk")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36014593, -3.958418)
-
-[node name="CollisionShape3D" parent="Latarka/StaticBody3D" parent_id_path=PackedInt32Array(1327510861, 42601452) index="0" unique_id=1342691050]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 1.4589354, 18.92429)
-
-[node name="flashlight" parent="Latarka/StaticBody3D" parent_id_path=PackedInt32Array(1327510861, 42601452) index="1" unique_id=603090498]
-transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 1.4421431, 18.933475)
-
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0.8155203, 12.390602, -1.8138618)
 light_color = Color(0.9990652, 0.9957443, 0.9943822, 1)
@@ -234,7 +226,12 @@ distance_fade_enabled = true
 spot_range = 25.086533
 script = ExtResource("9_u5pcf")
 
+[node name="czarnystwor" parent="." unique_id=1649121240 instance=ExtResource("19_46op0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.78898275, 0)
+
+[node name="Latarka" parent="." unique_id=1327510861 instance=ExtResource("4_redxk")]
+transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, -0.296942, 1.9379225, 15.130559)
+
 [editable path="HERO"]
-[editable path="Latarka"]
 [editable path="Node3D4"]
 [editable path="Mapa_Gry"]

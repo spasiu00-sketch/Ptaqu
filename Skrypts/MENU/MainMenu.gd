@@ -438,6 +438,7 @@ func _draw_window(c: CanvasItem, w: Rect2, col: Color) -> void:
 
 func _rebuild_menu() -> void:
 	for c in _menu_box.get_children():
+		_menu_box.remove_child(c)
 		c.queue_free()
 	_labels.clear()
 

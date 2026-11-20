@@ -92,7 +92,7 @@ func _process(delta: float) -> void:
 	# Obrót wokół pozycji modelu (nie wokół kamery) + cofnięcie do tyłu
 	var rot := Basis(Vector3.RIGHT, deg_to_rad(-pochylenie_stopnie * wspolczynnik))
 	var przesuniecie := Vector3(0.0, -0.05 * wspolczynnik, cofniecie)
-	var cel := _baza * Transform3D(rot, _pivot - rot * _pivot + przesuniecie)
+	var cel := Transform3D(rot, _pivot - rot * _pivot + przesuniecie) * _baza
 
 	var t := 1.0 - exp(-plynnosc * delta)
 	transform = transform.interpolate_with(cel, t)

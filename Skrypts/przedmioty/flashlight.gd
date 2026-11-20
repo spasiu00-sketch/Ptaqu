@@ -94,10 +94,10 @@ func _play_sfx(player: AudioStreamPlayer, stream: AudioStream, delay: float = 0.
 func _ensure_key_action(action: String, key: Key) -> void:
 	if not InputMap.has_action(action):
 		InputMap.add_action(action)
+	if InputMap.action_get_events(action).is_empty():
 		var ev := InputEventKey.new()
 		ev.physical_keycode = key
 		InputMap.action_add_event(action, ev)
-
 
 # ---------- Sprawdzanie wyposażenia ----------
 
