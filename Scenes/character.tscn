@@ -1,6 +1,6 @@
 [gd_scene format=4 uid="uid://csrmuvwj0fefo"]
 
-[ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/Postać/character_body_3d.gd" id="1_glpr6"]
+[ext_resource type="Script" uid="uid://bjmg1fwjborp5" path="res://Skrypts/Postać/HERO.gd" id="1_glpr6"]
 [ext_resource type="AudioStream" uid="uid://cq08548vraulq" path="res://Sounds/Hero/680766__saha213131__breath3.wav" id="2_0wngn"]
 [ext_resource type="Script" uid="uid://cd8hxj1s63ouh" path="res://Skrypts/przedmioty/flashlight.gd" id="3_wa5vi"]
 [ext_resource type="PackedScene" uid="uid://7lqo6cgbo8j0" path="res://Models/Latarka/Untitled_test animacji.glb" id="4_px5sl"]

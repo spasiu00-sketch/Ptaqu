@@ -14,7 +14,9 @@
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="9_ce2wr"]
 [ext_resource type="Script" uid="uid://dr1pcyofeho26" path="res://Skrypts/Interakcja/Migotanie_swiateł.gd" id="9_u5pcf"]
 [ext_resource type="Script" uid="uid://bg52aduhtm6o4" path="res://Skrypts/przedmioty/Bateria_Spawner.gd" id="9_uk4b7"]
+[ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/Postać/przedmiot.gd" id="12_6g1bp"]
 [ext_resource type="Script" uid="uid://b6hh7chvgo55x" path="res://Skrypts/MENU/Niebo.gd" id="12_7qaaq"]
+[ext_resource type="Resource" uid="uid://cr45twhtu7b3b" path="res://Items/Latarka.tres" id="13_ag7ya"]
 [ext_resource type="Script" uid="uid://7eodsibmmf2u" path="res://Skrypts/MENU/Intro.gd" id="14_u5pcf"]
 [ext_resource type="Script" uid="uid://c2pdrxisw4v5h" path="res://Skrypts/MENU/Pauza.gd" id="15_ihq08"]
 [ext_resource type="PackedScene" uid="uid://dexy5pm15hq7k" path="res://mapa_gry.tscn" id="15_u5pcf"]
@@ -89,6 +91,9 @@ shader_parameter/scanlines = 0.06
 shader_parameter/scanline_count = 240.0
 shader_parameter/aberration = 0.0015
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_bhunq"]
+size = Vector3(0.33805847, 0.16333008, 0.19915771)
+
 [node name="START_GAME" type="Node3D" unique_id=1430041279]
 
 [node name="Intro" type="CanvasLayer" parent="." unique_id=2136756777]
@@ -124,7 +129,7 @@ muzyka = ExtResource("6_46op0")
 glosnosc_db = -40.0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=821448270]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.099337, 1.4672976, 17.83701)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.1056895, 1.459652, 17.837288)
 mesh = SubResource("BoxMesh_riqys")
 skin = SubResource("Skin_bhunq")
 surface_material_override/0 = SubResource("StandardMaterial3D_avyfn")
@@ -165,11 +170,17 @@ metadata/_edit_use_anchors_ = true
 [node name="Latarka" parent="." unique_id=1327510861 instance=ExtResource("4_redxk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36014593, -3.958418)
 
-[node name="CollisionShape3D" parent="Latarka/StaticBody3D" parent_id_path=PackedInt32Array(1327510861, 42601452) index="0" unique_id=1342691050]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 1.4589354, 18.92429)
+[node name="Untitled_test animacji" parent="Latarka" index="0" unique_id=397617511]
+transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 0, -0.016186073)
 
-[node name="flashlight" parent="Latarka/StaticBody3D" parent_id_path=PackedInt32Array(1327510861, 42601452) index="1" unique_id=603090498]
-transform = Transform3D(0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05, 0, 1.4421431, 18.933475)
+[node name="StaticBody3D" parent="Latarka/Untitled_test animacji" index="4" unique_id=672862343]
+transform = Transform3D(20, 0, 0, 0, 20, 0, 0, 0, 20, 0, 0, 0.012618601)
+script = ExtResource("12_6g1bp")
+item = ExtResource("13_ag7ya")
+
+[node name="CollisionShape3D" parent="Latarka/Untitled_test animacji/StaticBody3D" index="0" unique_id=1342691050]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12993622, 0.01679182, -0.009185791)
+shape = SubResource("BoxShape3D_bhunq")
 
 [node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=550755698]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0.8155203, 12.390602, -1.8138618)
@@ -221,6 +232,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15147519, 1.761879, 18.316
 gizmo_extents = 0.57
 
 [node name="Mapa_Gry" parent="." unique_id=336073833 instance=ExtResource("15_u5pcf")]
+
+[node name="Terrain3D" parent="Mapa_Gry" index="0" unique_id=653086641]
+show_grid = true
+show_region_grid = true
 
 [node name="SpotLight3D2" type="SpotLight3D" parent="." unique_id=800066085]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0.8155203, 12.390602, 16.602882)
