@@ -179,6 +179,7 @@ const INPUT_KEYS := {
 @export var oczy_min_przerwa: float = 25.0
 @export var oczy_max_przerwa: float = 70.0
 @export var oczy_klawisz_testowy: Key = KEY_F5
+
 @export_group("Przenoszenie")
 @export var przenoszenie_wlaczone: bool = true
 
@@ -273,7 +274,6 @@ func _ready() -> void:
 	_setup_fatigue_blur()
 	_setup_glitch.call_deferred()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_setup_oczy()
 	_setup_przenoszenie()
 
 
@@ -609,11 +609,12 @@ func _update_health(delta: float) -> void:
 	if regen_enabled and health < max_health and _since_damage >= regen_delay:
 		_set_health(health + regen_speed * delta)
 
+
 func _setup_glitch() -> void:
-	# jeśli glitch jest już w scenie, nie dublujemy
 	if get_tree().get_first_node_in_group("glitch_kamery") != null:
 		return
 	add_child(GlitchKamery.new())
+
 
 func _die() -> void:
 	if _dead:
@@ -635,7 +636,6 @@ func _die() -> void:
 
 
 func _show_death_screen() -> void:
-	# Ekran tworzony jest dopiero po śmierci, więc nie wymaga osobnej sceny UI.
 	var layer := CanvasLayer.new()
 	layer.name = "DeathScreen"
 	layer.layer = 100
@@ -682,8 +682,6 @@ func _show_death_screen() -> void:
 
 
 func _restart_after_death() -> void:
-	# Autoload Inventory nie jest usuwany przy przeładowaniu sceny,
-	# dlatego czyścimy go przed rozpoczęciem nowej próby.
 	if Inventory != null and Inventory.has_method("reset"):
 		Inventory.reset()
 	get_tree().reload_current_scene()
@@ -860,8 +858,17 @@ func _get_interact_target() -> Object:
 	if interact_ray == null or not interact_ray.is_colliding():
 		return null
 	var target := interact_ray.get_collider()
-	if is_instance_valid(target) and target.has_method("interact"):
+	if not is_instance_valid(target):
+		return null
+	if target.has_method("interact"):
 		return target
+	if target is Node:
+		var rodzic: Node = target.get_parent()
+		if is_instance_valid(rodzic) and rodzic.has_method("interact"):
+			return rodzic
+		for dziecko in target.get_children():
+			if dziecko.has_method("interact"):
+				return dziecko
 	return null
 
 
@@ -878,6 +885,25 @@ func give_flashlight() -> void:
 		set_process(true)
 	if flashlight:
 		flashlight.pick_up()
+
+
+func schowaj_latarke() -> void:
+	if flashlight:
+		flashlight.zabierz()
+	if held_root:
+		held_root.visible = false
+
+
+func ustaw_widocznosc_latarki(widoczna: bool) -> void:
+	if flashlight == null or not flashlight.unlocked:
+		return
+	if held_root:
+		held_root.visible = widoczna
+		if widoczna:
+			mouse_input = Vector2.ZERO
+			set_process(true)
+	if not widoczna and flashlight.is_on:
+		flashlight._set_light(false)
 
 
 func _create_prompt_label() -> void:
@@ -903,7 +929,11 @@ func _update_prompt() -> void:
 	prompt_label.visible = target != null and not _inventory_open() and not kontrola_zablokowana
 	if target:
 		var prefix = target.get("prompt_prefix")
-		prompt_label.text = (str(prefix) if prefix != null else "[E] ") + (str(target.get("text")) if target.get("text") != null else "Użyj")
+		var tekst = target.get("prompt_text")
+		if tekst == null:
+			tekst = target.get("text")
+		prompt_label.text = (str(prefix) if prefix != null else "[E] ") + (str(tekst) if tekst != null else "Użyj")
+
 
 func _setup_footstep_player() -> void:
 	footstep_player = find_child("FootstepPlayer", true, false)
@@ -926,13 +956,14 @@ func _handle_footsteps(delta: float) -> void:
 	else:
 		step_progress = maxf(step_distance, 0.1)
 
+
 func _setup_przenoszenie() -> void:
 	if not przenoszenie_wlaczone:
 		return
 	przenoszenie = PrzenoszenieScript.new()
 	przenoszenie.gracz = self
 	add_child(przenoszenie)
-	
+
 
 func _play_step() -> void:
 	var powierzchnia := _wykryj_powierzchnie()
@@ -958,8 +989,6 @@ func _play_step() -> void:
 		print("krok | powierzchnia: ", powierzchnia.nazwa if powierzchnia != null else "domyślna")
 
 
-# Zwraca powierzchnię pod nogami: najpierw po grupie podłogi (budynki),
-# potem po namalowanej teksturze Terrain3D. null = dźwięki domyślne.
 func _wykryj_powierzchnie() -> PowierzchniaKrokow:
 	if powierzchnie.is_empty():
 		return null
@@ -987,8 +1016,6 @@ func _wykryj_powierzchnie() -> PowierzchniaKrokow:
 	return null
 
 
-# ID dominującej tekstury Terrain3D pod graczem (-1 = brak terenu / brak danych).
-# Terrain3D zwraca Vector3(tekstura bazowa, tekstura nakładki, mieszanie 0..1).
 func _id_tekstury_terenu() -> int:
 	if terrain == null:
 		if _teren_szukany:
@@ -1115,7 +1142,6 @@ func _process(delta: float) -> void:
 
 func _update_held_flashlight(delta: float) -> void:
 	mouse_input = Vector2.ZERO
-	# podczas przeładowania model prowadzi animacja, nie nadpisujemy jego pozycji
 	if flashlight != null and flashlight.is_busy:
 		return
 

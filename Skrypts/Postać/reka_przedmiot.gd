@@ -6,7 +6,6 @@ extends Node3D
 ##   Na pasku: PPM = wyczyść slot, przeciągnięcie na inny slot = zamiana miejscami.
 ## - Klawisze 1-9 / kółko myszy = wyjmij / schowaj przedmiot z danego slotu paska.
 ## - G = wyrzuć na ziemię to, co masz w ręce (przedmiot z paska albo latarkę).
-## Przedmiot da się przypisać tylko, jeśli ma model w ręku (węzeł z przedmiot_wrece.gd).
 
 signal zmieniono_przedmiot(indeks: int)
 
@@ -120,7 +119,13 @@ func _to_samo(a: Item, b: Item) -> bool:
 		return false
 	if a == b:
 		return true
-	return a.resource_path != "" and a.resource_path == b.resource_path
+	if a.jest_latarka and b.jest_latarka:
+		return true
+	if a.resource_path != "" and a.resource_path == b.resource_path:
+		return true
+	var na := a.nazwa.strip_edges().to_lower()
+	var nb := b.nazwa.strip_edges().to_lower()
+	return na != "" and na == nb
 
 
 func _item_obslugi(i: int) -> Item:
@@ -138,6 +143,22 @@ func _indeks_dla(item: Item) -> int:
 		if _to_samo(_item_obslugi(i), item):
 			return i
 	return -1
+
+
+func _czy_mozna_na_pasek(item: Item) -> bool:
+	if item == null:
+		return false
+	if _indeks_dla(item) >= 0:
+		return true
+	return item.jest_latarka and gracz != null and gracz.get("held_root") != null
+
+
+func _czy_latarka_widoczna() -> bool:
+	if gracz == null:
+		return false
+	var held = gracz.get("held_root")
+	var fl = gracz.get("flashlight")
+	return held != null and held.visible and fl != null and fl.unlocked
 
 
 func _item_z_ekwipunku(z: int) -> Item:
@@ -171,16 +192,23 @@ func _moze_sterowac() -> bool:
 
 # Który slot paska odpowiada aktualnie trzymanemu przedmiotowi (-1 = żaden)
 func _hb_aktywny() -> int:
-	if _aktywny < 0:
+	if _aktywny >= 0:
+		var item := _item_obslugi(_aktywny)
+		if item == null:
+			return -1
+		if _hb_ostatni >= 0 and _to_samo(_pasek[_hb_ostatni], item):
+			return _hb_ostatni
+		for h in ROZMIAR_PASKA:
+			if _to_samo(_pasek[h], item):
+				return h
 		return -1
-	var item := _item_obslugi(_aktywny)
-	if item == null:
-		return -1
-	if _hb_ostatni >= 0 and _to_samo(_pasek[_hb_ostatni], item):
-		return _hb_ostatni
-	for h in ROZMIAR_PASKA:
-		if _to_samo(_pasek[h], item):
-			return h
+
+	if _czy_latarka_widoczna():
+		if _hb_ostatni >= 0 and _pasek[_hb_ostatni] != null and _pasek[_hb_ostatni].jest_latarka:
+			return _hb_ostatni
+		for h in ROZMIAR_PASKA:
+			if _pasek[h] != null and _pasek[h].jest_latarka:
+				return h
 	return -1
 
 
@@ -256,7 +284,27 @@ func _schowaj_natychmiast() -> void:
 func _wybierz_pasek(h: int) -> void:
 	if h < 0 or h >= ROZMIAR_PASKA:
 		return
-	var idx := _indeks_dla(_pasek[h])
+	var item := _pasek[h]
+	if item == null:
+		return
+
+	# Obsługa latarki przypisanej do paska 1-9
+	var idx := _indeks_dla(item)
+	if idx < 0 and item.jest_latarka and gracz != null:
+		if _aktywny >= 0:
+			await _wybierz(-1)
+		var teraz_widoczna := _czy_latarka_widoczna()
+		if teraz_widoczna:
+			_hb_ostatni = -1
+			if gracz.has_method("ustaw_widocznosc_latarki"):
+				gracz.call("ustaw_widocznosc_latarki", false)
+		else:
+			_hb_ostatni = h
+			if gracz.has_method("ustaw_widocznosc_latarki"):
+				gracz.call("ustaw_widocznosc_latarki", true)
+		_odswiez_pasek()
+		return
+
 	if idx < 0 or not _dostepny(idx):
 		return
 	if idx == _aktywny:
@@ -272,8 +320,11 @@ func _przewin(kierunek: int) -> void:
 		return
 	var lista: Array[int] = []
 	for h in ROZMIAR_PASKA:
-		var idx := _indeks_dla(_pasek[h])
-		if idx >= 0 and _dostepny(idx):
+		var it := _pasek[h]
+		if it == null:
+			continue
+		var idx := _indeks_dla(it)
+		if (idx >= 0 and _dostepny(idx)) or (it.jest_latarka and _inv != null and _inv.ma(it)):
 			lista.append(h)
 	if lista.is_empty():
 		return
@@ -362,16 +413,21 @@ func _process(_delta: float) -> void:
 			gracz.set_process(true)
 
 	if _hud != null:
-		var pokaz := pasek_widoczny
-		if gracz != null:
+		var podglad_otwarty := false
+		for p in get_tree().get_nodes_in_group("podglad_przedmiotu"):
+			if is_instance_valid(p) and bool(p.get("otwarty")):
+				podglad_otwarty = true
+				break
+
+		var pokaz := pasek_widoczny and not podglad_otwarty
+		if pokaz and gracz != null:
 			if bool(gracz.call("is_dead")):
 				pokaz = false
 			elif pasek_tylko_w_ekwipunku and not bool(gracz.call("_inventory_open")):
 				pokaz = false
 		if _hud.visible != pokaz:
 			_hud.visible = pokaz
-			
-			
+
 	_tryb_myszy_poprzedni = Input.mouse_mode
 
 
@@ -669,8 +725,7 @@ func _hb_can_drop(_poz_kursora: Vector2, dane: Variant, h: int) -> bool:
 		if dane.has("hb"):
 			ok = int(dane["hb"]) != h
 		elif dane.has("z"):
-			# z ekwipunku da się przypisać tylko przedmiot, który ma model w ręku
-			ok = _indeks_dla(_item_z_ekwipunku(int(dane["z"]))) >= 0
+			ok = _czy_mozna_na_pasek(_item_z_ekwipunku(int(dane["z"])))
 	if ok and _hb_cel_drop != h:
 		_hb_cel_drop = h
 		_odswiez_pasek()
@@ -687,7 +742,7 @@ func _hb_drop(_poz_kursora: Vector2, dane: Variant, h: int) -> void:
 		_pasek[h] = tmp
 	elif dane.has("z"):
 		var item := _item_z_ekwipunku(int(dane["z"]))
-		if _indeks_dla(item) < 0:
+		if not _czy_mozna_na_pasek(item):
 			return
 		for i in ROZMIAR_PASKA:   # jeden przedmiot = jeden slot
 			if _to_samo(_pasek[i], item):
