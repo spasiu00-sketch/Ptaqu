@@ -2,13 +2,15 @@
 
 [ext_resource type="PackedScene" uid="uid://davcdpiai8ifb" path="res://Models/Battery/Bateria.glb" id="1_e513j"]
 [ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/Postać/przedmiot.gd" id="1_n4fnb"]
+[ext_resource type="Script" uid="uid://dwx1scmyoat51" path="res://Skrypts/Postać/przedmiot_wrece.gd" id="1_ol3ys"]
 [ext_resource type="Resource" uid="uid://d1jcry5yjguiv" path="res://Items/Bateria.tres" id="2_oxrd0"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sn0t7"]
 size = Vector3(0.16845703, 0.13320541, 0.1360035)
 
-[node name="Bateria" type="Node3D" unique_id=233667880]
+[node name="Bateria" type="RigidBody3D" unique_id=320816475]
 transform = Transform3D(0.08, 0, 0, 0, 0.08, 0, 0, 0, 0.08, 0, 0, 0)
+script = ExtResource("1_ol3ys")
 
 [node name="StaticBody3D" type="RigidBody3D" parent="." unique_id=1136672998]
 transform = Transform3D(1, 0, 0, 0, 0.99979866, -0.020065371, 0, 0.020065371, 0.99979866, 0, 0, 0)

@@ -20,10 +20,10 @@
 [ext_resource type="Script" uid="uid://bbudtp830qym6" path="res://Skrypts/Postać/reka_przedmiot.gd" id="15_nw3qc"]
 [ext_resource type="Animation" uid="uid://bwc5ty7qp16o5" path="res://Animations/Hero_walking.res" id="15_s7tkn"]
 [ext_resource type="Animation" uid="uid://u6qwu0ku57om" path="res://Animations/Hero_crouch_to_stand.res" id="16_nw3qc"]
-[ext_resource type="Script" uid="uid://dwx1scmyoat51" path="res://Skrypts/Postać/przedmiot_wrece.gd" id="17_1g2gg"]
 [ext_resource type="Animation" uid="uid://co3x1v1lxt1k0" path="res://Animations/Hero_crouch_walk.res" id="17_rtvxd"]
 [ext_resource type="Animation" uid="uid://devxef7jt2yv" path="res://Animations/Hero_idle_crouch.res" id="18_1g2gg"]
 [ext_resource type="PackedScene" uid="uid://5qvdsp11oe4g" path="res://Scenes/Flashlight.tscn" id="18_8iu2w"]
+[ext_resource type="Script" uid="uid://htc0mjykytvj" path="res://Skrypts/Postać/przedmiot.gd" id="19_8iu2w"]
 [ext_resource type="Resource" uid="uid://d1jcry5yjguiv" path="res://Items/Bateria.tres" id="20_1g2gg"]
 [ext_resource type="PackedScene" uid="uid://brw4nb4620u43" path="res://Scenes/Bateria.tscn" id="27_0wngn"]
 [ext_resource type="PackedScene" uid="uid://dexy5pm15hq7k" path="res://mapa_gry.tscn" id="28_vl1po"]
@@ -1208,9 +1208,20 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.7717346, -0.23141304)
 script = ExtResource("15_nw3qc")
 gracz = NodePath("../../..")
 
+[node name="Bateria" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=233667880 instance=ExtResource("27_0wngn")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.61513025, 0.4994262, -0.4964639)
+script = ExtResource("19_8iu2w")
+prompt_text = "Podnieś"
+daje_latarke = true
+item = SubResource("Resource_oxrd0")
+ilosc = 1
+
 [node name="Latarka" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=1327510861 instance=ExtResource("18_8iu2w")]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 0.5750487, 0.49871242, -0.5419084)
-script = ExtResource("17_1g2gg")
+script = ExtResource("19_8iu2w")
+prompt_text = "Podnieś"
+daje_latarke = true
+ilosc = 1
 
 [node name="HeldFlashlight" type="SpotLight3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Latarka" unique_id=2097009686 node_paths=PackedStringArray("model_root")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0.28391415, 0.0019443631, -0.01249671)
@@ -1234,11 +1245,6 @@ dead_sound = ExtResource("8_bwfjh")
 
 [node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="CharacterBody3D/Camera3D/Cofanie/reka/Latarka" unique_id=400462674]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15203536, 0.004880011, -0.022008419)
-
-[node name="Bateria" parent="CharacterBody3D/Camera3D/Cofanie/reka" unique_id=233667880 instance=ExtResource("27_0wngn")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.61513025, 0.4994262, -0.4964639)
-script = ExtResource("17_1g2gg")
-item = SubResource("Resource_oxrd0")
 
 [node name="InteractRay" type="RayCast3D" parent="CharacterBody3D/Camera3D" unique_id=1844702724]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08896881, 0, -5.9604645e-08)
